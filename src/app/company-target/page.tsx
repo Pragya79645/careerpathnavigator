@@ -112,7 +112,7 @@ export default function TargetCompanyRoadmap() {
         {children}
       </ul>
     )),
-    li: (({ children }) => (
+    li: (({ children }: { children: React.ReactNode }) => (
       <li className="text-gray-700">{children}</li>
     )),
   };
