@@ -95,9 +95,7 @@ const TransparentNavbar = () => {
                                     animate={{ opacity: 1, x: 0 }}
                                     transition={{ delay: 0.3, duration: 0.5 }}
                                 >
-                                    <h1 className="text-white font-extrabold text-xs tracking-wider">
-                                        Path<span className="text-[#110e6c]">PILOT</span> 
-                                    </h1>
+                                    <Image src={"/logo.jpg"} alt="Logo" width={40} height={40} className="rounded-full" />
                                 </motion.div>
                             </motion.div>
                         </Link>
