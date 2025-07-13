@@ -1,6 +1,6 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
+import { Inter, Crimson_Text } from "next/font/google"
 import "./globals.css"
 
 import { SidebarProvider } from "@/components/ui/sidebar"
@@ -10,6 +10,11 @@ import { ThemeProvider } from "next-themes"
 import TransparentNavbar from "@/components/header"
 
 const inter = Inter({ subsets: ["latin"] })
+const crimsonText = Crimson_Text({ 
+  subsets: ["latin"], 
+  weight: ["400", "600", "700"],
+  variable: "--font-serif"
+})
 
 export const metadata: Metadata = {
   title: "Career Path Navigator",
@@ -23,7 +28,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <head>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.6.172/pdf.min.js"></script>
+      </head>
+      <body className={`${inter.className} ${crimsonText.variable}`}>
    <TransparentNavbar />
           
             <div className="flex min-h-screen">
