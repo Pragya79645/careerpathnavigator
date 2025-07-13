@@ -47,6 +47,8 @@ interface EvaluationResponse {
   justification: string;
   improvement_suggestions: ImprovementSuggestion[];
   motivation: string;
+  top_skills: string[];
+  projects: string[];
 }
 
 export async function POST(request: NextRequest) {
@@ -71,8 +73,8 @@ export async function POST(request: NextRequest) {
     }
     const userData: GitHubUser = await userResponse.json();
 
-    // Fetch GitHub repositories
-    const reposResponse = await fetch(`https://api.github.com/users/${github_username}/repos?per_page=100&sort=updated`);
+    // Fetch GitHub repositories - increased limit and sort by updated
+    const reposResponse = await fetch(`https://api.github.com/users/${github_username}/repos?per_page=100&sort=updated&type=owner`);
     if (!reposResponse.ok) {
       return NextResponse.json(
         { error: 'Failed to fetch repositories' },
@@ -83,9 +85,12 @@ export async function POST(request: NextRequest) {
 
     // Filter frontend-related repositories
     const frontendLanguages = ['JavaScript', 'TypeScript', 'HTML', 'CSS', 'Vue', 'Svelte'];
-    const frontendKeywords = ['react', 'vue', 'angular', 'next', 'nuxt', 'svelte', 'frontend', 'web', 'ui', 'website', 'app'];
+    const frontendKeywords = ['react', 'vue', 'angular', 'next', 'nuxt', 'svelte', 'frontend', 'web', 'ui', 'website', 'app', 'portfolio', 'landing', 'dashboard', 'ecommerce', 'blog'];
     
     const frontendRepos = reposData.filter(repo => {
+      // Skip forks unless they have significant modifications
+      if (repo.forks_count === 0 && repo.size < 100) return false;
+      
       const languageMatch = frontendLanguages.includes(repo.language);
       const nameMatch = frontendKeywords.some(keyword => 
         repo.name.toLowerCase().includes(keyword) || 
@@ -94,8 +99,25 @@ export async function POST(request: NextRequest) {
       const topicsMatch = repo.topics.some(topic => 
         frontendKeywords.some(keyword => topic.includes(keyword))
       );
+      
       return languageMatch || nameMatch || topicsMatch;
     });
+
+    // Get all non-fork repositories for project comparison
+    const allUserRepos = reposData.filter(repo => 
+      !repo.name.includes('.github.io') && // Exclude GitHub pages repos
+      repo.size > 50 && // Exclude very small repos
+      repo.name !== github_username // Exclude profile README repos
+    );
+
+    // Combine frontend repos with other significant repos for comparison
+    const projectsForComparison = [
+      ...frontendRepos.map(repo => repo.name),
+      ...allUserRepos
+        .filter(repo => !frontendRepos.some(fr => fr.name === repo.name))
+        .slice(0, 10) // Add up to 10 non-frontend repos
+        .map(repo => repo.name)
+    ];
 
     // Prepare data for AI analysis
     const analysisData = {
@@ -120,9 +142,11 @@ export async function POST(request: NextRequest) {
         age_days: Math.floor((Date.now() - new Date(repo.created_at).getTime()) / (1000 * 60 * 60 * 24)),
         last_updated_days: Math.floor((Date.now() - new Date(repo.updated_at).getTime()) / (1000 * 60 * 60 * 24))
       })),
+      all_projects: projectsForComparison,
       portfolio_url: portfolio_url || userData.blog,
       claimed_skills: skills_list || '',
-      total_frontend_repos: frontendRepos.length
+      total_frontend_repos: frontendRepos.length,
+      total_repos: allUserRepos.length
     };
 
     // Call Gemini API for analysis
@@ -144,8 +168,10 @@ Based on this data, assess their frontend development skill level and provide im
 Your task is to:
 1. Estimate their frontend development level using the categories: Beginner, Intermediate, Industry-Ready, Advanced
 2. Justify the skill rank based on: Number and depth of projects, Tool/tech stack coverage, Code quality indicators, UI/UX implementation evidence, Usage of APIs/animations/auth/testing
-3. Return 3 concrete suggestions for improvement with action title, description, resource link + topic, estimated time in hours
-4. Provide a motivation quote
+3. Extract top 3-5 skills/technologies they're best at based on repo analysis
+4. List ALL available project names from all_projects array for potential comparison (include both frontend and non-frontend projects)
+5. Return 3 concrete suggestions for improvement with action title, description, resource link + topic, estimated time in hours
+6. Provide a motivation quote
 
 Evaluation Criteria:
 - Beginner: 0-2 basic projects, mainly HTML/CSS/JS, no frameworks, basic functionality
@@ -157,6 +183,8 @@ OUTPUT FORMAT (JSON only):
 {
   "skill_level": "Intermediate",
   "justification": "User has 2 React projects with clean structure, API integration, and deployment. Limited use of testing or advanced patterns.",
+  "top_skills": ["React", "JavaScript", "CSS", "Node.js", "Git"],
+  "projects": ["Portfolio Website", "Todo App", "Weather Dashboard", "API Server", "Mobile App", "Data Visualization"],
   "improvement_suggestions": [
     {
       "title": "Add End-to-End Testing",
@@ -188,6 +216,8 @@ OUTPUT FORMAT (JSON only):
   ],
   "motivation": "You're closer to industry than you think. Keep shipping, keep learning 🚀"
 }
+
+IMPORTANT: Include ALL projects from the all_projects array in the projects field, not just frontend ones. This allows users to compare any of their repositories.
 
 Only return JSON. No explanations or additional text.`
           }]
@@ -233,15 +263,22 @@ Only return JSON. No explanations or additional text.`
       const jsonMatch = aiResponseText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         evaluation = JSON.parse(jsonMatch[0]);
+        
+        // Ensure projects array includes all available projects
+        if (!evaluation.projects || evaluation.projects.length === 0) {
+          evaluation.projects = projectsForComparison;
+        }
       } else {
         throw new Error('No valid JSON found in AI response');
       }
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError);
-      // Fallback evaluation
+      // Fallback evaluation with all available projects
       evaluation = {
         skill_level: 'Intermediate',
         justification: 'Unable to fully analyze profile. Based on repository count and activity, estimated as intermediate level.',
+        top_skills: ['JavaScript', 'HTML', 'CSS', 'React'],
+        projects: projectsForComparison, // Include all projects for comparison
         improvement_suggestions: [
           {
             title: 'Build More Projects',
