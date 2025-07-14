@@ -90,7 +90,7 @@ export default function TargetCompanyRoadmap() {
 
   // Custom renderer for ReactMarkdown
   const customRenderers = {
-    h2: ({ children, ...props }: { children?: React.ReactNode }) => {
+    h2: (({ children }) => {
       const text = children ? children.toString() : '';
       const match = text.match(/\d+\.\s*(.*)/);
       const sectionTitle = match ? match[1] : text;
@@ -100,20 +100,19 @@ export default function TargetCompanyRoadmap() {
         <h2 
           id={id} 
           className="text-2xl font-bold text-indigo-700 mt-10 mb-6 pb-3 border-b border-indigo-100"
-          {...props}
         >
           {text}
         </h2>
       );
-    },
-    ul: ({ children, ...props }: { children?: React.ReactNode }) => (
-      <ul className="list-disc ml-6 my-5 space-y-3" {...props}>
+    }),
+    ul: (({ children }) => (
+      <ul className="list-disc ml-6 my-5 space-y-3">
         {children}
       </ul>
-    ),
-    li: ({ children, ...props }: { children?: React.ReactNode }) => (
-      <li className="text-gray-700" {...props}>{children}</li>
-    ),
+    )),
+    li: (({ children }: { children: React.ReactNode }) => (
+      <li className="text-gray-700">{children}</li>
+    )),
   };
 
   const toggleSidebar = () => {

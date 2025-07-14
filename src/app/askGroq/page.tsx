@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import { 
   Mic, Send, Terminal, User, Bot, ChevronDown, AlertCircle, Code, Zap, 
   Sun, Moon, ThumbsUp, ThumbsDown, Heart, RotateCcw, Sparkles, 
-  FileText, CheckCircle, ArrowRight, BookOpen, Target, Lightbulb, ExternalLink, Edit3, Save, X
+  FileText, CheckCircle, ArrowRight, BookOpen, Target, Lightbulb
 } from 'lucide-react';
 
 interface Message {
@@ -16,7 +16,6 @@ interface Message {
   };
   tasks?: string[];
   id: string;
-  edited?: boolean;
 }
 
 interface Reaction {
@@ -35,135 +34,9 @@ export default function GeminiCareerAssistant() {
   const [activeTab, setActiveTab] = useState<{[key: string]: string}>({});
   const [typingText, setTypingText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [typingTimer, setTypingTimer] = useState<NodeJS.Timeout | null>(null);
-  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
-  const [editingText, setEditingText] = useState<string>("");
-  const [detectedIntents, setDetectedIntents] = useState<string[]>([]);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // Intent badge colors for UI
-  const getIntentColor = (intent: string) => {
-    const colors: { [key: string]: string } = {
-      'LEARNING': 'bg-blue-500/20 text-blue-400',
-      'JOB_SEARCH': 'bg-green-500/20 text-green-400',
-      'INTERVIEW_PREP': 'bg-red-500/20 text-red-400',
-      'PORTFOLIO': 'bg-purple-500/20 text-purple-400',
-      'TECHNOLOGY': 'bg-orange-500/20 text-orange-400',
-      'CAREER_ADVICE': 'bg-indigo-500/20 text-indigo-400',
-      'SALARY': 'bg-yellow-500/20 text-yellow-400',
-      'NETWORKING': 'bg-pink-500/20 text-pink-400',
-    };
-    return colors[intent] || 'bg-gray-500/20 text-gray-400';
-  };
-
-  // Predefined resources for common topics
-  const getTopicResources = (topic: string) => {
-    const resources: { [key: string]: string[] } = {
-      'web development': [
-        '[freeCodeCamp](https://freecodecamp.org) - Free coding bootcamp',
-        '[MDN Web Docs](https://developer.mozilla.org) - Web development reference',
-        '[The Odin Project](https://theodinproject.com) - Full-stack curriculum'
-      ],
-      'javascript': [
-        '[JavaScript.info](https://javascript.info) - Modern JS tutorial',
-        '[Eloquent JavaScript](https://eloquentjavascript.net) - Free online book',
-        '[You Don\'t Know JS](https://github.com/getify/You-Dont-Know-JS) - Book series'
-      ],
-      'react': [
-        '[React Official Docs](https://react.dev) - Official documentation',
-        '[React Training](https://reacttraining.com) - Professional courses',
-        '[Scrimba React Course](https://scrimba.com/learn/learnreact) - Interactive learning'
-      ],
-      'interview': [
-        '[LeetCode](https://leetcode.com) - Coding practice',
-        '[Pramp](https://pramp.com) - Mock interviews',
-        '[InterviewBit](https://interviewbit.com) - Technical prep'
-      ],
-      'portfolio': [
-        '[GitHub Pages](https://pages.github.com) - Free hosting',
-        '[Netlify](https://netlify.com) - Easy deployment',
-        '[Vercel](https://vercel.com) - Frontend platform'
-      ],
-      'jobs': [
-        '[LinkedIn Jobs](https://linkedin.com/jobs) - Professional network',
-        '[AngelList](https://angel.co) - Startup jobs',
-        '[Remote.co](https://remote.co) - Remote opportunities'
-      ]
-    };
-    
-    return resources[topic.toLowerCase()] || [];
-  };
-
-  // Simplified function to render content with links and bullet points only
-  const renderMessageContent = (content: string) => {
-    // First handle line breaks and bullet points
-    const lines = content.split('\n');
-    const processedLines = lines.map((line, lineIndex) => {
-      // Handle bullet points
-      if (line.trim().startsWith('- ') || line.trim().startsWith('• ')) {
-        const bulletContent = line.trim().substring(2);
-        return (
-          <div key={`line-${lineIndex}`} className="flex items-start gap-2 my-1">
-            <span className="text-blue-400 mt-1">•</span>
-            <span>{processLinksInText(bulletContent)}</span>
-          </div>
-        );
-      }
-      
-      // Regular line
-      return line ? (
-        <div key={`line-${lineIndex}`} className="my-1">
-          {processLinksInText(line)}
-        </div>
-      ) : (
-        <br key={`line-${lineIndex}`} />
-      );
-    });
-    
-    return processedLines;
-  };
-
-  // Helper function to process only links within text
-  const processLinksInText = (content: string) => {
-    const parts = [];
-    let currentIndex = 0;
-    
-    // Only handle links, no asterisk formatting
-    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-    let match;
-
-    while ((match = linkRegex.exec(content)) !== null) {
-      // Add text before the link
-      if (match.index > currentIndex) {
-        parts.push(content.slice(currentIndex, match.index));
-      }
-      
-      // Add the clickable link
-      parts.push(
-        <a
-          key={match.index}
-          href={match[2]}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 underline decoration-dotted transition-colors"
-        >
-          {match[1]}
-          <ExternalLink size={12} className="inline" />
-        </a>
-      );
-      
-      currentIndex = match.index + match[0].length;
-    }
-    
-    // Add remaining text
-    if (currentIndex < content.length) {
-      parts.push(content.slice(currentIndex));
-    }
-    
-    return parts.length > 0 ? parts : content;
-  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -177,12 +50,11 @@ export default function GeminiCareerAssistant() {
     inputRef.current?.focus();
   }, []);
 
-  // Enhanced typing animation 
+  // Typing animation effect
   const typeMessage = (text: string, callback: () => void) => {
     setIsTyping(true);
     setTypingText("");
     let i = 0;
-    
     const timer = setInterval(() => {
       if (i < text.length) {
         setTypingText(text.substring(0, i + 1));
@@ -190,49 +62,9 @@ export default function GeminiCareerAssistant() {
       } else {
         clearInterval(timer);
         setIsTyping(false);
-        callback(); // Call callback when completed
+        callback();
       }
-    }, 30); // Slightly slower for better readability
-    
-    setTypingTimer(timer);
-  };
-
-  // Edit message functionality - only allow editing when AI is not responding
-  const startEditingMessage = (messageId: string, currentContent: string) => {
-    // Only allow editing when AI is completely finished responding
-    if (loading || isTyping) return; 
-    setEditingMessageId(messageId);
-    setEditingText(currentContent);
-  };
-
-  const cancelEditing = () => {
-    setEditingMessageId(null);
-    setEditingText("");
-  };
-
-  const saveEditedMessage = async (messageId: string) => {
-    if (!editingText.trim()) return;
-    
-    // Find the message index
-    const messageIndex = messages.findIndex(msg => msg.id === messageId);
-    if (messageIndex === -1) return;
-
-    // Store the edited text before clearing the state
-    const newEditedText = editingText.trim();
-
-    // Remove the edited message and all messages after it (including bot responses)
-    // Keep only the messages before the edited one for context
-    const messagesToKeep = messages.slice(0, messageIndex);
-    
-    // Clear editing state
-    setEditingMessageId(null);
-    setEditingText("");
-
-    // Update messages state
-    setMessages(messagesToKeep);
-    
-    // Pass the trimmed messages directly to handleSend to avoid state timing issues
-    handleSend(newEditedText, messagesToKeep);
+    }, 20);
   };
 
   const processGeminiResponse = (text: string) => {
@@ -284,87 +116,48 @@ export default function GeminiCareerAssistant() {
     return questions.slice(0, 2); // Return 2 random questions
   };
 
-  const handleSend = async (customPrompt?: string, baseMessages?: Message[]) => {
+  const handleSend = async (customPrompt?: string) => {
     const prompt = customPrompt || input;
-    if (!prompt.trim()) {
-      console.log("HandleSend: Empty prompt, returning");
-      return;
-    }
-    
-    // Prevent multiple simultaneous sends
-    if (loading) {
-      console.log("Already loading, preventing duplicate send. Loading:", loading);
-      return;
-    }
-    
-    console.log("HandleSend called with:", { 
-      prompt, 
-      loading, 
-      isTyping,
-      baseMessagesLength: baseMessages?.length || messages.length
-    });
-    
-    // Use provided baseMessages or current messages state for conversation history
-    let updatedMessages = [...(baseMessages || messages)];
-    
-    // Reset all typing-related states when starting a new request
-    console.log("Resetting all typing states");
-    setIsTyping(false);
-    setTypingText("");
-    if (typingTimer) {
-      clearInterval(typingTimer);
-      setTypingTimer(null);
-    }
+    if (!prompt.trim()) return;
     
     const userMsg: Message = { 
       role: "user", 
       content: prompt,
       id: Date.now().toString()
     };
-    updatedMessages.push(userMsg);
-    setMessages(updatedMessages);
+    setMessages(prev => [...prev, userMsg]);
     setLoading(true);
     setInput("");
 
-    console.log("About to send API request. Loading state set to:", true);
-
     try {
-      console.log("Sending to backend:", { prompt, conversationHistory: updatedMessages });
-      
-      // The backend now handles intent detection and dynamic context building
+      const enhancedPrompt = `
+        You are a friendly AI career assistant named Gemini. Respond in a helpful, encouraging tone.
+        
+        Please structure your response with:
+        1. A warm, conversational main answer
+        2. If applicable, add sections for:
+           📚 Resources: (list helpful resources)
+           📝 Next Steps: (actionable next steps)
+           💡 Examples: (relevant examples)
+           ✅ Task: (specific mini-tasks to complete)
+        
+        Also suggest 1-2 follow-up questions at the end.
+        
+        User question: ${prompt}
+      `;
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ 
-          prompt: prompt, // Send the raw prompt - backend will handle enhancement
-          conversationHistory: updatedMessages // Send the updated conversation history
-        }),
+        body: JSON.stringify({ prompt: enhancedPrompt }),
       });
 
-      if (!res.ok) {
-        throw new Error(`API response not ok: ${res.status}`);
-      }
-
       const data = await res.json();
-      console.log("Received from backend:", data);
-      
-      if (!data.answer) {
-        throw new Error("No answer received from backend");
-      }
-
       const { mainContent, tabContent, tasks } = processGeminiResponse(data.answer);
 
-      // Update detected intents if new intent is detected
-      if (data.detectedIntent && !detectedIntents.includes(data.detectedIntent)) {
-        setDetectedIntents(prev => [...prev, data.detectedIntent]);
-      }
-
-      console.log("Starting typeMessage with:", mainContent);
-      
       typeMessage(mainContent, () => {
-        console.log("TypeMessage completed, adding to messages");
         const botMsg: Message = { 
           role: "bot", 
           content: mainContent,
@@ -373,15 +166,10 @@ export default function GeminiCareerAssistant() {
           id: Date.now().toString()
         };
         setMessages(prev => [...prev, botMsg]);
-        
-        // Brief notification that editing is now available
-        setTimeout(() => {
-          // This could show a subtle notification or just rely on the edit button becoming available
-        }, 500);
       });
 
     } catch (error) {
-      console.error("Error in handleSend:", error);
+      console.error("Error:", error);
       const errorMsg: Message = { 
         role: "bot", 
         content: "I'm having trouble connecting right now. Please try again!",
@@ -389,7 +177,6 @@ export default function GeminiCareerAssistant() {
       };
       setMessages(prev => [...prev, errorMsg]);
     } finally {
-      console.log("Setting loading to false");
       setLoading(false);
       inputRef.current?.focus();
     }
@@ -416,16 +203,8 @@ export default function GeminiCareerAssistant() {
   const summarizeChat = async () => {
     if (messages.length === 0) return;
     
-    const recentMessages = messages.slice(-10); // Last 10 messages for better context
-    const chatHistory = recentMessages.map(m => `${m.role}: ${m.content}`).join('\n');
-    const summaryPrompt = `Based on our conversation history, provide a comprehensive summary with:
-- Key topics we discussed (3-4 bullet points)
-- Main advice and recommendations given
-- Specific resources mentioned with links
-- Suggested next steps for continuing the conversation
-
-Conversation to summarize:
-${chatHistory}`;
+    const chatHistory = messages.map(m => `${m.role}: ${m.content}`).join('\n');
+    const summaryPrompt = `Please provide a brief summary of this career conversation:\n\n${chatHistory}`;
     
     handleSend(summaryPrompt);
   };
@@ -562,30 +341,11 @@ ${chatHistory}`;
               <h1 className="font-bold text-xl bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-500">
                 Gemini Career Assistant
               </h1>
-              <div className="flex items-center text-xs text-gray-400 flex-wrap gap-2">
+              <div className="flex items-center text-xs text-gray-400">
                 <span className="flex items-center">
                   <span className="inline-block w-2 h-2 rounded-full bg-indigo-500 mr-1"></span>
-                  Intent-based AI guidance
+                  AI-powered career guidance
                 </span>
-                {messages.length > 0 && (
-                  <span className="flex items-center">
-                    <span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-1"></span>
-                    Conversation memory active
-                  </span>
-                )}
-                {detectedIntents.length > 0 && (
-                  <div className="flex items-center gap-1 ml-2">
-                    <span className="text-xs">Detected:</span>
-                    {detectedIntents.slice(-3).map((intent, i) => (
-                      <span
-                        key={i}
-                        className={`px-2 py-0.5 rounded-full text-xs ${getIntentColor(intent)}`}
-                      >
-                        {intent.replace('_', ' ').toLowerCase()}
-                      </span>
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
           </div>
@@ -621,15 +381,15 @@ ${chatHistory}`;
               
               <h2 className="text-xl font-semibold mb-2">Hi! I'm your Gemini Career Assistant</h2>
               <p className="text-gray-400 text-center max-w-md mb-8">
-                Get quick, actionable career advice with conversation memory! I'll remember our discussion and build upon it.
+                I'm here to help with career development, job searching, and professional growth with personalized guidance!
               </p>
               
               <div className="grid grid-cols-2 gap-3 w-full max-w-lg">
                 {[
-                  { icon: <Code size={16} />, text: "Best web development resources?" },
-                  { icon: <User size={16} />, text: "Top coding interview prep sites?" },
-                  { icon: <Target size={16} />, text: "Where to find remote jobs?" },
-                  { icon: <BookOpen size={16} />, text: "Free programming courses?" }
+                  { icon: <Code size={16} />, text: "Web Development Career Path" },
+                  { icon: <User size={16} />, text: "Interview Preparation Tips" },
+                  { icon: <Target size={16} />, text: "Salary Negotiation Guide" },
+                  { icon: <BookOpen size={16} />, text: "Industry Trend Analysis" }
                 ].map((item, i) => (
                   <button
                     key={i}
@@ -646,7 +406,7 @@ ${chatHistory}`;
             <div className="space-y-4 py-4">
               {messages.map((msg, i) => (
                 <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className="flex space-x-3 max-w-[80%] group">{/* Added group class here */}
+                  <div className="flex space-x-3 max-w-[80%]">
                     {msg.role !== "user" && (
                       <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 flex items-center justify-center">
                         <Sparkles size={16} className="text-white" />
@@ -658,77 +418,7 @@ ${chatHistory}`;
                         ? "bg-gradient-to-r from-purple-500 to-purple-600 text-white" 
                         : `${isDark ? 'bg-gray-800' : 'bg-white'} border ${isDark ? 'border-gray-700' : 'border-gray-200'}`
                     }`}>
-                      {msg.role === "user" && editingMessageId === msg.id ? (
-                        // Edit mode for user messages
-                        <div className="space-y-3">
-                          <textarea
-                            value={editingText}
-                            onChange={(e) => setEditingText(e.target.value)}
-                            className="w-full p-2 bg-white/10 border border-white/20 rounded text-white placeholder-gray-300 resize-none focus:outline-none focus:ring-2 focus:ring-white/30"
-                            rows={3}
-                            placeholder="Edit your message..."
-                            autoFocus
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault();
-                                saveEditedMessage(msg.id);
-                              }
-                              if (e.key === 'Escape') {
-                                cancelEditing();
-                              }
-                            }}
-                          />
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-gray-300">
-                              Press Enter to save, Shift+Enter for new line, Esc to cancel
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={cancelEditing}
-                                className="p-1 rounded hover:bg-white/10 text-gray-300 hover:text-white"
-                                title="Cancel editing"
-                              >
-                                <X size={16} />
-                              </button>
-                              <button
-                                onClick={() => saveEditedMessage(msg.id)}
-                                className="p-1 rounded hover:bg-white/10 text-green-300 hover:text-green-200"
-                                title="Save changes"
-                              >
-                                <Save size={16} />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        // Normal display mode
-                        <>
-                          <div className={msg.role === "user" ? "whitespace-pre-wrap" : ""}>
-                            {msg.role === "user" ? msg.content : renderMessageContent(msg.content)}
-                          </div>
-                          
-                          {/* Edited indicator */}
-                          {msg.role === "user" && msg.edited && (
-                            <span className="text-xs text-gray-300 opacity-70 mt-1 block">
-                              (edited)
-                            </span>
-                          )}
-                          
-                          {/* Edit button for user messages */}
-                          {msg.role === "user" && (
-                            <button
-                              onClick={() => startEditingMessage(msg.id, msg.content)}
-                              disabled={loading || isTyping} // Disable when AI is responding
-                              className={`mt-2 p-1 rounded hover:bg-white/10 text-gray-300 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity ${
-                                (loading || isTyping) ? 'cursor-not-allowed opacity-50' : ''
-                              }`}
-                              title={(loading || isTyping) ? "Cannot edit while AI is responding. Please wait for completion." : "Edit message"}
-                            >
-                              <Edit3 size={14} />
-                            </button>
-                          )}
-                        </>
-                      )}
+                      <div className="whitespace-pre-wrap">{msg.content}</div>
                       
                       {msg.tabContent && <TabContent message={msg} />}
                       {msg.tasks && <TaskList tasks={msg.tasks} />}
@@ -798,7 +488,7 @@ ${chatHistory}`;
                       <Sparkles size={16} className="text-white" />
                     </div>
                     <div className={`py-3 px-4 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-white'} border ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-                      <div>{renderMessageContent(typingText)}</div>
+                      <div className="whitespace-pre-wrap">{typingText}</div>
                     </div>
                   </div>
                 </div>
@@ -811,15 +501,6 @@ ${chatHistory}`;
         
         {/* Input */}
         <div className={`p-4 border-t ${isDark ? 'border-gray-700' : 'border-gray-300'}`}>
-          {isTyping && (
-            <div className="mb-3 flex items-center p-2 bg-indigo-500/10 rounded-md border border-indigo-500/20">
-              <span className="text-sm text-indigo-400 flex items-center gap-2">
-                <Sparkles size={14} className="animate-pulse" />
-                Gemini is typing...
-              </span>
-            </div>
-          )}
-          
           <div className="flex items-center space-x-2">
             <div className="flex-grow relative">
               <input
@@ -829,13 +510,8 @@ ${chatHistory}`;
                 placeholder={isRecording ? "Listening..." : "Ask me anything about your career..."}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey && !loading && input.trim()) {
-                    console.log("Enter pressed, calling handleSend. Loading:", loading, "Input:", input.trim());
-                    handleSend();
-                  }
-                }}
-                disabled={isRecording || loading}
+                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+                disabled={isRecording}
               />
             </div>
             
@@ -863,7 +539,7 @@ ${chatHistory}`;
           </div>
           
           <div className="mt-2 text-xs text-gray-400 text-center">
-            <p>Gemini Career Assistant • Quick & Actionable Career Advice</p>
+            <p>Gemini Career Assistant • Powered by Google's AI</p>
           </div>
         </div>
       </div>
