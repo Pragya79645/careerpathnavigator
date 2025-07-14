@@ -8,10 +8,32 @@ const SkillEvaluator = () => {
     portfolio_url: '',
     skills_list: ''
   });
+  type ScoreBreakdown = {
+    "UI Complexity": number;
+    "Styling Mastery": number;
+    "Component Structure": number;
+    "State Management": number;
+    "API Integration": number;
+    "Authentication": number;
+    "Deployment": number;
+    "Code Quality": number;
+    "Accessibility": number;
+    "Testing & Error Handling": number;
+    "Animation & UX Polish": number;
+    "Real-World Use Case": number;
+    "Documentation": number;
+  };
+  
   type Evaluation = {
+    score_breakdown: ScoreBreakdown;
+    total_score: number;
     skill_level: keyof typeof skillLevels;
+    skill_emoji: string;
     justification: string;
     top_skills: string[];
+    projects?: string[];
+    strengths: string[];
+    priority_improvements: string[];
     improvement_suggestions: {
       title: string;
       description: string;
@@ -21,8 +43,9 @@ const SkillEvaluator = () => {
         topic: string;
       };
     }[];
-    projects?: string[];
     motivation: string;
+    cached_result?: boolean;
+    evaluation_timestamp?: string;
   };
   const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
   const [loading, setLoading] = useState(false);
@@ -541,6 +564,178 @@ const SkillEvaluator = () => {
     </div>
   );
 
+  const renderScoreBreakdown = (scores: ScoreBreakdown) => {
+    const getScoreColor = (score: number) => {
+      if (score === 3) return 'text-green-400';
+      if (score === 2) return 'text-blue-400';
+      if (score === 1) return 'text-yellow-400';
+      return 'text-gray-400';
+    };
+
+    const getScoreBg = (score: number) => {
+      if (score === 3) return 'bg-green-500';
+      if (score === 2) return 'bg-blue-500';
+      if (score === 1) return 'bg-yellow-500';
+      return 'bg-gray-500';
+    };
+
+    const getScoreLabel = (score: number) => {
+      const labels = ['Not Present', 'Basic', 'Good', 'Advanced'];
+      return labels[score] || 'Unknown';
+    };
+
+    const categories = Object.entries(scores) as [keyof ScoreBreakdown, number][];
+
+    return (
+      <div className="bg-white/5 rounded-xl p-6 border border-white/10 mb-6">
+        <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+          <BarChart3 className="w-5 h-5 text-blue-400" />
+          Detailed Skill Assessment (13 Categories)
+        </h3>
+        
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {categories.map(([category, score]) => (
+            <div key={category} className="bg-white/5 rounded-lg p-4 border border-white/10">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium text-white text-sm">{category}</h4>
+                <div className="flex items-center gap-2">
+                  <span className={`text-lg font-bold ${getScoreColor(score)}`}>
+                    {score}
+                  </span>
+                  <span className="text-gray-400 text-xs">/3</span>
+                </div>
+              </div>
+              
+              <div className="mb-2">
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="text-gray-400">{getScoreLabel(score)}</span>
+                  <span className={getScoreColor(score)}>{Math.round((score/3)*100)}%</span>
+                </div>
+                <div className="w-full bg-gray-700 rounded-full h-2">
+                  <div 
+                    className={`h-2 rounded-full transition-all duration-500 ${getScoreBg(score)}`}
+                    style={{ width: `${(score/3)*100}%` }}
+                  ></div>
+                </div>
+              </div>
+              
+              {/* Score indicator dots */}
+              <div className="flex justify-between mt-3">
+                {[0, 1, 2, 3].map((level) => (
+                  <div 
+                    key={level}
+                    className={`w-2 h-2 rounded-full ${
+                      score >= level ? getScoreBg(score) : 'bg-gray-600'
+                    }`}
+                  ></div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        {/* Overall Score Summary */}
+        <div className="mt-6 p-4 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-lg border border-blue-500/20">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="text-white font-semibold">Overall Score</h4>
+              <p className="text-gray-300 text-sm">Combined assessment across all categories</p>
+            </div>
+            <div className="text-right">
+              <div className="text-3xl font-bold text-blue-400">{evaluation?.total_score}</div>
+              <div className="text-gray-400 text-sm">out of 39</div>
+              <div className="text-xs text-gray-500 mt-1">
+                {evaluation?.total_score && Math.round((evaluation.total_score/39)*100)}% mastery
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderStrengthsAndImprovements = () => {
+    if (!evaluation) return null;
+
+    return (
+      <div className="grid md:grid-cols-2 gap-6 mb-6">
+        {/* Strengths */}
+        <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-xl p-6 border border-green-500/30">
+          <h3 className="text-lg font-bold text-green-400 mb-4 flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5" />
+            Key Strengths
+          </h3>
+          <div className="space-y-3">
+            {evaluation.strengths.map((strength, index) => (
+              <div key={index} className="flex items-start gap-3">
+                <div className="w-2 h-2 bg-green-400 rounded-full mt-2 flex-shrink-0"></div>
+                <span className="text-green-100 text-sm">{strength}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Priority Improvements */}
+        <div className="bg-gradient-to-br from-orange-500/10 to-red-500/10 rounded-xl p-6 border border-orange-500/30">
+          <h3 className="text-lg font-bold text-orange-400 mb-4 flex items-center gap-2">
+            <Target className="w-5 h-5" />
+            Priority Improvements
+          </h3>
+          <div className="space-y-3">
+            {evaluation.priority_improvements.map((improvement, index) => (
+              <div key={index} className="flex items-start gap-3">
+                <div className="w-2 h-2 bg-orange-400 rounded-full mt-2 flex-shrink-0"></div>
+                <span className="text-orange-100 text-sm">{improvement}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderSkillLevelBadge = (level: keyof typeof skillLevels, emoji: string, totalScore: number) => {
+    const config = skillLevels[level];
+    const maxScore = 39;
+    const percentage = Math.round((totalScore / maxScore) * 100);
+    
+    return (
+      <div className="relative mb-8">
+        <div className={`inline-flex items-center gap-4 px-8 py-4 rounded-2xl border-2 ${
+          level === 'Advanced' ? 'bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-green-400/50' :
+          level === 'Industry-Ready' ? 'bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-blue-400/50' :
+          level === 'Intermediate' ? 'bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border-yellow-400/50' :
+          'bg-gradient-to-r from-purple-500/20 to-pink-500/20 border-purple-400/50'
+        }`}>
+          <div className="text-6xl">{emoji}</div>
+          <div className="text-left">
+            <div className={`text-2xl font-bold ${config.color}`}>{level}</div>
+            <div className="text-gray-300 text-sm">Score: {totalScore}/39 ({percentage}%)</div>
+            {config.next && (
+              <div className="text-gray-400 text-xs mt-1">
+                Next level: {config.next}
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* Floating achievement indicators */}
+        <div className="absolute -top-2 -right-2 flex gap-1">
+          {totalScore >= 30 && (
+            <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
+              <Star className="w-4 h-4 text-yellow-900 fill-current" />
+            </div>
+          )}
+          {totalScore >= 35 && (
+            <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+              <Award className="w-4 h-4 text-green-900" />
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       <div className="container mx-auto px-4 py-8">
@@ -636,43 +831,100 @@ const SkillEvaluator = () => {
               <div className="space-y-8">
                 {/* Skill Level */}
                 <div className="text-center">
-                  <h2 className="text-2xl font-bold text-white mb-4">Your Frontend Skill Level</h2>
-                  <div className="flex justify-center mb-4">
+                  <div className="flex items-center justify-center gap-4 mb-8">
+                    <h2 className="text-3xl font-bold text-white">
+                      🎯 Your Frontend Development Assessment
+                    </h2>
+                    {evaluation.cached_result && (
+                      <div className="text-xs text-gray-400 bg-gray-800/50 px-3 py-1 rounded-full border border-gray-600/30">
+                        📄 Cached Result
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Enhanced Skill Level Badge */}
+                  {renderSkillLevelBadge(evaluation.skill_level, evaluation.skill_emoji, evaluation.total_score)}
+                  
+                  <div className="flex justify-center mb-6">
                     {renderStars(evaluation.skill_level)}
                   </div>
                   {renderProgressBar(evaluation.skill_level)}
-                  <p className="text-gray-300 text-lg max-w-3xl mx-auto mt-4">
-                    {evaluation.justification}
-                  </p>
+                  
+                  <div className="mt-6 p-6 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-xl border border-blue-500/20">
+                    <p className="text-gray-300 text-lg max-w-4xl mx-auto leading-relaxed">
+                      {evaluation.justification}
+                    </p>
+                  </div>
                   {renderSkillBadges(evaluation.top_skills)}
                 </div>
 
+                {/* Enhanced Skill Level Badge */}
+                {renderSkillLevelBadge(evaluation.skill_level, evaluation.skill_emoji, evaluation.total_score)}
+
+                {/* Detailed Score Breakdown */}
+                {renderScoreBreakdown(evaluation.score_breakdown)}
+
+                {/* Strengths and Improvements */}
+                {renderStrengthsAndImprovements()}
+
                 {/* Improvement Suggestions */}
                 <div>
-                  <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                    <Target className="w-5 h-5" />
-                    Suggestions for Improvement
+                  <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+                    <Target className="w-6 h-6 text-orange-400" />
+                    🚀 Targeted Skill Development Plan
                   </h3>
                   <div className="grid md:grid-cols-1 gap-6">
                     {evaluation.improvement_suggestions.map((suggestion, index) => (
-                      <div key={index} className="bg-white/5 rounded-xl p-6 border border-white/10">
-                        <div className="flex items-start justify-between mb-3">
-                          <h4 className="font-semibold text-white text-lg">{suggestion.title}</h4>
-                          <div className="flex items-center gap-1 text-purple-400">
-                            <Clock className="w-4 h-4" />
-                            <span className="text-sm">{suggestion.estimated_time_hours}h</span>
+                      <div key={index} className="group bg-gradient-to-r from-white/5 to-white/10 rounded-xl p-6 border border-white/10 hover:border-white/20 transition-all duration-300 hover:shadow-lg">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-start gap-4">
+                            <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+                              {index + 1}
+                            </div>
+                            <div className="flex-1">
+                              <h4 className="font-bold text-white text-lg group-hover:text-orange-300 transition-colors">
+                                {suggestion.title}
+                              </h4>
+                              <div className="flex items-center gap-3 mt-2">
+                                <div className="flex items-center gap-1 text-orange-400">
+                                  <Clock className="w-4 h-4" />
+                                  <span className="text-sm font-medium">{suggestion.estimated_time_hours}h</span>
+                                </div>
+                                <div className="flex items-center gap-1 text-blue-400">
+                                  <BarChart3 className="w-4 h-4" />
+                                  <span className="text-sm">High Impact</span>
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         </div>
-                        <p className="text-gray-300 mb-4">{suggestion.description}</p>
-                        <a
-                          href={suggestion.resource.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 text-purple-400 hover:text-purple-300 transition-colors"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                          {suggestion.resource.topic}
-                        </a>
+                        
+                        <p className="text-gray-300 mb-4 leading-relaxed">{suggestion.description}</p>
+                        
+                        <div className="flex items-center justify-between">
+                          <a
+                            href={suggestion.resource.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg transition-all duration-200 group-hover:shadow-lg"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                            {suggestion.resource.topic}
+                          </a>
+                          
+                          <div className="text-xs text-gray-400">
+                            Step {index + 1} of {evaluation.improvement_suggestions.length}
+                          </div>
+                        </div>
+                        
+                        {/* Progress indicator */}
+                        <div className="mt-4 w-full bg-gray-700 rounded-full h-1">
+                          <div 
+                            className="bg-gradient-to-r from-orange-500 to-red-500 h-1 rounded-full transition-all duration-300"
+                            style={{ width: `${((index + 1) / evaluation.improvement_suggestions.length) * 100}%` }}
+                          ></div>
+                        </div>
+                        
                         {renderSuggestionTips(suggestion)}
                       </div>
                     ))}
