@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import { 
   Mic, Send, Terminal, User, Bot, ChevronDown, AlertCircle, Code, Zap, 
   Sun, Moon, ThumbsUp, ThumbsDown, Heart, RotateCcw, Sparkles, 
-  FileText, CheckCircle, ArrowRight, BookOpen, Target, Lightbulb, StopCircle, ExternalLink, Edit3, Save, X
+  FileText, CheckCircle, ArrowRight, BookOpen, Target, Lightbulb, ExternalLink, Edit3, Save, X
 } from 'lucide-react';
 
 interface Message {
@@ -35,13 +35,10 @@ export default function GeminiCareerAssistant() {
   const [activeTab, setActiveTab] = useState<{[key: string]: string}>({});
   const [typingText, setTypingText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [stopTyping, setStopTyping] = useState(false);
   const [typingTimer, setTypingTimer] = useState<NodeJS.Timeout | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState<string>("");
   const [detectedIntents, setDetectedIntents] = useState<string[]>([]);
-  const [pausedResponseContent, setPausedResponseContent] = useState<string>("");
-  const [hasPausedResponse, setHasPausedResponse] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -180,80 +177,30 @@ export default function GeminiCareerAssistant() {
     inputRef.current?.focus();
   }, []);
 
-  // Enhanced typing animation with stop functionality
+  // Enhanced typing animation 
   const typeMessage = (text: string, callback: () => void) => {
     setIsTyping(true);
-    setStopTyping(false);
     setTypingText("");
     let i = 0;
     
     const timer = setInterval(() => {
-      if (stopTyping) {
-        clearInterval(timer);
-        setIsTyping(false);
-        setTypingText(text); // Show full text when stopped
-        // Don't call callback when stopped - let user decide next action
-        return;
-      }
-      
       if (i < text.length) {
         setTypingText(text.substring(0, i + 1));
         i++;
       } else {
         clearInterval(timer);
         setIsTyping(false);
-        callback(); // Only call callback when naturally completed
+        callback(); // Call callback when completed
       }
     }, 30); // Slightly slower for better readability
     
     setTypingTimer(timer);
   };
 
-  const stopResponse = () => {
-    console.log("StopResponse called - resetting all states");
-    setStopTyping(true);
-    setHasPausedResponse(true);
-    setPausedResponseContent(typingText);
-    setLoading(false); // Reset loading state so user can send new messages
-    
-    // Immediately save the paused content as a complete message
-    if (typingText.trim()) {
-      const pausedBotMsg: Message = { 
-        role: "bot", 
-        content: typingText + " (response paused)",
-        id: Date.now().toString() + "_paused"
-      };
-      setMessages(prev => [...prev, pausedBotMsg]);
-    }
-    
-    // Now reset the typing states
-    setIsTyping(false);
-    setTypingText("");
-    if (typingTimer) {
-      clearInterval(typingTimer);
-      setTypingTimer(null);
-    }
-    console.log("StopResponse completed - paused content saved as message, user can type new message");
-  };
-
-  const continueResponse = () => {
-    // Since paused responses are now immediately saved as complete messages,
-    // we just need to reset the paused state
-    setHasPausedResponse(false);
-    setPausedResponseContent("");
-    setIsTyping(false);
-    setStopTyping(false);
-    setTypingText("");
-    console.log("Continue response - paused state cleared");
-  };
-
-  // Edit message functionality
+  // Edit message functionality - only allow editing when AI is not responding
   const startEditingMessage = (messageId: string, currentContent: string) => {
-    // Disable editing when AI is responding, unless user has stopped it
-    // Allow editing only when:
-    // 1. AI is not responding at all (!loading && !isTyping)
-    // 2. User has explicitly stopped the AI response (stopTyping = true)
-    if ((loading || isTyping) && !stopTyping) return; 
+    // Only allow editing when AI is completely finished responding
+    if (loading || isTyping) return; 
     setEditingMessageId(messageId);
     setEditingText(currentContent);
   };
@@ -270,17 +217,22 @@ export default function GeminiCareerAssistant() {
     const messageIndex = messages.findIndex(msg => msg.id === messageId);
     if (messageIndex === -1) return;
 
-    // Remove all messages after this one (including bot responses)
-    // but keep the messages before the edited one for context
-    const messagesToKeep = messages.slice(0, messageIndex);
-    setMessages(messagesToKeep);
+    // Store the edited text before clearing the state
+    const newEditedText = editingText.trim();
 
+    // Remove the edited message and all messages after it (including bot responses)
+    // Keep only the messages before the edited one for context
+    const messagesToKeep = messages.slice(0, messageIndex);
+    
     // Clear editing state
     setEditingMessageId(null);
     setEditingText("");
 
-    // Resend the edited message - handleSend will add it properly to the state
-    handleSend(editingText.trim());
+    // Update messages state
+    setMessages(messagesToKeep);
+    
+    // Pass the trimmed messages directly to handleSend to avoid state timing issues
+    handleSend(newEditedText, messagesToKeep);
   };
 
   const processGeminiResponse = (text: string) => {
@@ -332,7 +284,7 @@ export default function GeminiCareerAssistant() {
     return questions.slice(0, 2); // Return 2 random questions
   };
 
-  const handleSend = async (customPrompt?: string) => {
+  const handleSend = async (customPrompt?: string, baseMessages?: Message[]) => {
     const prompt = customPrompt || input;
     if (!prompt.trim()) {
       console.log("HandleSend: Empty prompt, returning");
@@ -348,25 +300,17 @@ export default function GeminiCareerAssistant() {
     console.log("HandleSend called with:", { 
       prompt, 
       loading, 
-      isTyping, 
-      stopTyping, 
-      hasPausedResponse,
-      pausedResponseContent: pausedResponseContent.length 
+      isTyping,
+      baseMessagesLength: baseMessages?.length || messages.length
     });
     
-    // Get current messages state for conversation history
-    let updatedMessages = [...messages];
+    // Use provided baseMessages or current messages state for conversation history
+    let updatedMessages = [...(baseMessages || messages)];
     
-    // NOTE: Paused responses are already saved as complete messages in stopResponse()
-    // so we don't need to save them again here
-    
-    // ALWAYS reset all typing-related states when starting a new request
+    // Reset all typing-related states when starting a new request
     console.log("Resetting all typing states");
     setIsTyping(false);
-    setStopTyping(false);
     setTypingText("");
-    setHasPausedResponse(false);
-    setPausedResponseContent("");
     if (typingTimer) {
       clearInterval(typingTimer);
       setTypingTimer(null);
@@ -774,11 +718,11 @@ ${chatHistory}`;
                           {msg.role === "user" && (
                             <button
                               onClick={() => startEditingMessage(msg.id, msg.content)}
-                              disabled={(loading || isTyping) && !stopTyping} // Disable when AI is responding unless stopped
+                              disabled={loading || isTyping} // Disable when AI is responding
                               className={`mt-2 p-1 rounded hover:bg-white/10 text-gray-300 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity ${
-                                ((loading || isTyping) && !stopTyping) ? 'cursor-not-allowed opacity-50' : ''
+                                (loading || isTyping) ? 'cursor-not-allowed opacity-50' : ''
                               }`}
-                              title={((loading || isTyping) && !stopTyping) ? "Cannot edit while AI is responding. Click Stop to enable editing." : "Edit message"}
+                              title={(loading || isTyping) ? "Cannot edit while AI is responding. Please wait for completion." : "Edit message"}
                             >
                               <Edit3 size={14} />
                             </button>
@@ -853,15 +797,8 @@ ${chatHistory}`;
                     <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 flex items-center justify-center">
                       <Sparkles size={16} className="text-white" />
                     </div>
-                    <div className={`py-3 px-4 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-white'} border ${isDark ? 'border-gray-700' : 'border-gray-200'} relative`}>
+                    <div className={`py-3 px-4 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-white'} border ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
                       <div>{renderMessageContent(typingText)}</div>
-                      <button
-                        onClick={stopResponse}
-                        className="absolute top-2 right-2 p-1 rounded hover:bg-gray-600 text-red-400 hover:text-red-300"
-                        title="Stop response"
-                      >
-                        <StopCircle size={16} />
-                      </button>
                     </div>
                   </div>
                 </div>
@@ -875,18 +812,11 @@ ${chatHistory}`;
         {/* Input */}
         <div className={`p-4 border-t ${isDark ? 'border-gray-700' : 'border-gray-300'}`}>
           {isTyping && (
-            <div className="mb-3 flex items-center justify-between p-2 bg-indigo-500/10 rounded-md border border-indigo-500/20">
+            <div className="mb-3 flex items-center p-2 bg-indigo-500/10 rounded-md border border-indigo-500/20">
               <span className="text-sm text-indigo-400 flex items-center gap-2">
                 <Sparkles size={14} className="animate-pulse" />
-                Gemini is typing... {stopTyping && "(Response paused - you can ask a new question)"}
+                Gemini is typing...
               </span>
-              <button
-                onClick={stopResponse}
-                className="flex items-center gap-1 px-2 py-1 bg-red-500/20 text-red-400 rounded text-xs hover:bg-red-500/30"
-              >
-                <StopCircle size={12} />
-                Stop
-              </button>
             </div>
           )}
           
