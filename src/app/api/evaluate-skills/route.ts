@@ -1,145 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 
-// Simple in-memory cache for consistent evaluations
-const evaluationCache = new Map<string, { data: EvaluationResponse; timestamp: number }>();
-const CACHE_DURATION = 60 * 60 * 1000; // 1 hour
-
-// Deterministic scoring functions
-function calculateDeterministicScore(repoData: any[], userStats: any): ScoreBreakdown {
-  const scores: ScoreBreakdown = {
-    "UI Complexity": 0,
-    "Styling Mastery": 0,
-    "Component Structure": 0,
-    "State Management": 0,
-    "API Integration": 0,
-    "Authentication": 0,
-    "Deployment": 0,
-    "Code Quality": 0,
-    "Accessibility": 0,
-    "Testing & Error Handling": 0,
-    "Animation & UX Polish": 0,
-    "Real-World Use Case": 0,
-    "Documentation": 0
-  };
-
-  // UI Complexity - based on repo count and descriptions
-  const frontendRepos = repoData.filter(repo => 
-    ['JavaScript', 'TypeScript', 'HTML', 'CSS'].includes(repo.language) ||
-    repo.topics.some((topic: string) => ['react', 'vue', 'angular', 'frontend', 'ui'].includes(topic.toLowerCase()))
-  );
-  
-  if (frontendRepos.length >= 5) scores["UI Complexity"] = 3;
-  else if (frontendRepos.length >= 3) scores["UI Complexity"] = 2;
-  else if (frontendRepos.length >= 1) scores["UI Complexity"] = 1;
-
-  // Styling Mastery - check for CSS frameworks and styling
-  const hasModernStyling = repoData.some(repo => 
-    repo.topics.some((topic: string) => ['tailwind', 'styled-components', 'sass', 'css-modules'].includes(topic.toLowerCase())) ||
-    (repo.description && /tailwind|styled|sass|scss|css/i.test(repo.description))
-  );
-  scores["Styling Mastery"] = hasModernStyling ? 2 : 1;
-
-  // Component Structure - React/Vue projects indicate component usage
-  const hasComponentFramework = repoData.some(repo => 
-    repo.topics.some((topic: string) => ['react', 'vue', 'angular', 'svelte'].includes(topic.toLowerCase())) ||
-    (repo.description && /react|vue|angular|component/i.test(repo.description))
-  );
-  scores["Component Structure"] = hasComponentFramework ? 2 : 1;
-
-  // State Management - check for state management libraries
-  const hasStateManagement = repoData.some(repo => 
-    repo.topics.some((topic: string) => ['redux', 'zustand', 'context', 'state'].includes(topic.toLowerCase())) ||
-    (repo.description && /redux|zustand|context|state/i.test(repo.description))
-  );
-  scores["State Management"] = hasStateManagement ? 3 : 1;
-
-  // API Integration - check for API-related keywords
-  const hasAPIIntegration = repoData.some(repo => 
-    repo.topics.some((topic: string) => ['api', 'rest', 'graphql', 'fetch'].includes(topic.toLowerCase())) ||
-    (repo.description && /api|rest|graphql|fetch|axios/i.test(repo.description))
-  );
-  scores["API Integration"] = hasAPIIntegration ? 2 : 1;
-
-  // Authentication - check for auth-related keywords
-  const hasAuth = repoData.some(repo => 
-    repo.topics.some((topic: string) => ['auth', 'firebase', 'jwt', 'oauth'].includes(topic.toLowerCase())) ||
-    (repo.description && /auth|login|firebase|jwt|oauth/i.test(repo.description))
-  );
-  scores["Authentication"] = hasAuth ? 2 : 0;
-
-  // Deployment - check for homepage URLs (indicates deployment)
-  const deployedRepos = repoData.filter(repo => repo.homepage && repo.homepage.length > 0);
-  if (deployedRepos.length >= 3) scores["Deployment"] = 3;
-  else if (deployedRepos.length >= 1) scores["Deployment"] = 2;
-  else scores["Deployment"] = 0;
-
-  // Code Quality - TypeScript usage and repo organization
-  const hasTypeScript = repoData.some(repo => repo.language === 'TypeScript');
-  const hasGoodNaming = repoData.every(repo => repo.name.length > 3 && !repo.name.includes('untitled'));
-  scores["Code Quality"] = hasTypeScript ? 3 : hasGoodNaming ? 2 : 1;
-
-  // Testing - check for testing keywords
-  const hasTesting = repoData.some(repo => 
-    repo.topics.some((topic: string) => ['testing', 'jest', 'cypress', 'test'].includes(topic.toLowerCase())) ||
-    (repo.description && /test|jest|cypress|testing/i.test(repo.description))
-  );
-  scores["Testing & Error Handling"] = hasTesting ? 2 : 0;
-
-  // Animation - check for animation libraries
-  const hasAnimation = repoData.some(repo => 
-    repo.topics.some((topic: string) => ['animation', 'framer', 'gsap', 'motion'].includes(topic.toLowerCase())) ||
-    (repo.description && /animation|framer|gsap|motion/i.test(repo.description))
-  );
-  scores["Animation & UX Polish"] = hasAnimation ? 3 : 1;
-
-  // Real-World Use Case - based on repo descriptions and complexity
-  const practicalRepos = repoData.filter(repo => 
-    repo.description && 
-    /ecommerce|dashboard|portfolio|blog|chat|todo|weather|calculator|game/i.test(repo.description) &&
-    repo.size_kb > 100
-  );
-  if (practicalRepos.length >= 2) scores["Real-World Use Case"] = 2;
-  else if (practicalRepos.length >= 1) scores["Real-World Use Case"] = 1;
-
-  // Documentation - check for repos with good descriptions and READMEs
-  const documentedRepos = repoData.filter(repo => 
-    repo.description && repo.description.length > 20
-  );
-  if (documentedRepos.length >= Math.floor(repoData.length * 0.8)) scores["Documentation"] = 3;
-  else if (documentedRepos.length >= Math.floor(repoData.length * 0.5)) scores["Documentation"] = 2;
-  else scores["Documentation"] = 1;
-
-  // Accessibility - assume basic if good documentation and modern frameworks
-  scores["Accessibility"] = (scores["Documentation"] >= 2 && scores["Component Structure"] >= 2) ? 1 : 0;
-
-  return scores;
-}
-
-function getSkillLevelFromScore(totalScore: number): { level: 'Beginner' | 'Intermediate' | 'Industry-Ready' | 'Advanced'; emoji: string } {
-  if (totalScore >= 36) return { level: 'Advanced', emoji: '🧠' };
-  if (totalScore >= 26) return { level: 'Industry-Ready', emoji: '🚀' };
-  if (totalScore >= 16) return { level: 'Intermediate', emoji: '🌱' };
-  return { level: 'Beginner', emoji: '🐣' };
-}
-
-async function getCachedEvaluation(cacheKey: string): Promise<EvaluationResponse | null> {
-  const cached = evaluationCache.get(cacheKey);
-  if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
-    return {
-      ...cached.data,
-      cached_result: true,
-      evaluation_timestamp: new Date(cached.timestamp).toISOString()
-    };
-  }
-  return null;
-}
-
-function setCachedEvaluation(cacheKey: string, evaluation: EvaluationResponse): void {
-  evaluationCache.set(cacheKey, {
-    data: evaluation,
-    timestamp: Date.now()
-  });
-}
+// Simple in-memory cache for consistent results
+const evaluationCache = new Map<string, EvaluationResponse>();
 
 interface GitHubRepo {
   name: string;
@@ -183,36 +46,319 @@ interface ImprovementSuggestion {
   estimated_time_hours: number;
 }
 
-interface ScoreBreakdown {
-  "UI Complexity": number;
-  "Styling Mastery": number;
-  "Component Structure": number;
-  "State Management": number;
-  "API Integration": number;
-  "Authentication": number;
-  "Deployment": number;
-  "Code Quality": number;
-  "Accessibility": number;
-  "Testing & Error Handling": number;
-  "Animation & UX Polish": number;
-  "Real-World Use Case": number;
-  "Documentation": number;
+interface ProjectDetails {
+  name: string;
+  description: string;
+  language: string;
+  size_kb: number;
+  stars: number;
+  forks: number;
+  topics: string[];
+  homepage: string;
+  created_at: string;
+  updated_at: string;
+  is_frontend: boolean;
+  html_url: string;
+  complexity_indicators: {
+    has_dependencies: boolean;
+    has_deployment: boolean;
+    has_good_description: boolean;
+    estimated_complexity: 'Low' | 'Medium' | 'High';
+  };
 }
 
 interface EvaluationResponse {
-  score_breakdown: ScoreBreakdown;
-  total_score: number;
   skill_level: 'Beginner' | 'Intermediate' | 'Industry-Ready' | 'Advanced';
-  skill_emoji: string;
   justification: string;
   improvement_suggestions: ImprovementSuggestion[];
   motivation: string;
   top_skills: string[];
   projects: string[];
-  strengths: string[];
-  priority_improvements: string[];
-  cached_result?: boolean;
-  evaluation_timestamp?: string;
+  all_projects: ProjectDetails[];
+  frontend_projects: ProjectDetails[];
+  other_projects: ProjectDetails[];
+  score_breakdown: {
+    'UI Complexity': number;
+    'Styling Mastery': number;
+    'Component Structure': number;
+    'State Management': number;
+    'API Integration': number;
+    'Authentication': number;
+    'Deployment': number;
+    'Code Quality': number;
+    'Accessibility': number;
+    'Testing & Error Handling': number;
+    'Animation & UX Polish': number;
+    'Real-World Use Case': number;
+    'Documentation': number;
+  };
+  total_score: number;
+  skill_emoji: string;
+}
+
+// Deterministic evaluation function for consistent scoring
+function createDeterministicEvaluation(analysisData: any, frontendProjects: ProjectDetails[]): EvaluationResponse {
+  const scores = {
+    'UI Complexity': 0,
+    'Styling Mastery': 0,
+    'Component Structure': 0,
+    'State Management': 0,
+    'API Integration': 0,
+    'Authentication': 0,
+    'Deployment': 0,
+    'Code Quality': 0,
+    'Accessibility': 0,
+    'Testing & Error Handling': 0,
+    'Animation & UX Polish': 0,
+    'Real-World Use Case': 0,
+    'Documentation': 0
+  };
+
+  // 1. UI Complexity (based on project count and size)
+  const projectCount = frontendProjects.length;
+  const avgSize = frontendProjects.reduce((sum, p) => sum + p.size_kb, 0) / Math.max(projectCount, 1);
+  
+  if (projectCount >= 5 && avgSize > 500) scores['UI Complexity'] = 3;
+  else if (projectCount >= 3 && avgSize > 200) scores['UI Complexity'] = 2;
+  else if (projectCount >= 1 && avgSize > 50) scores['UI Complexity'] = 1;
+
+  // 2. Styling Mastery (based on topics and technologies)
+  const stylingKeywords = ['css', 'tailwind', 'scss', 'sass', 'styled-components', 'emotion', 'mui', 'chakra'];
+  const stylingProjects = frontendProjects.filter(p => 
+    stylingKeywords.some(keyword => 
+      p.topics.some(topic => topic.includes(keyword)) || 
+      p.name.toLowerCase().includes(keyword) ||
+      p.description.toLowerCase().includes(keyword)
+    )
+  );
+  
+  if (stylingProjects.length >= 3) scores['Styling Mastery'] = 3;
+  else if (stylingProjects.length >= 2) scores['Styling Mastery'] = 2;
+  else if (stylingProjects.length >= 1) scores['Styling Mastery'] = 1;
+
+  // 3. Component Structure (based on React/Vue/Angular projects)
+  const componentKeywords = ['react', 'vue', 'angular', 'component', 'next', 'nuxt'];
+  const componentProjects = frontendProjects.filter(p =>
+    componentKeywords.some(keyword =>
+      p.topics.some(topic => topic.includes(keyword)) ||
+      p.name.toLowerCase().includes(keyword) ||
+      p.description.toLowerCase().includes(keyword)
+    )
+  );
+  
+  if (componentProjects.length >= 3 && avgSize > 300) scores['Component Structure'] = 3;
+  else if (componentProjects.length >= 2) scores['Component Structure'] = 2;
+  else if (componentProjects.length >= 1) scores['Component Structure'] = 1;
+
+  // 4. State Management (based on advanced React/Vue patterns)
+  const stateKeywords = ['redux', 'zustand', 'context', 'vuex', 'pinia', 'mobx', 'state-management'];
+  const stateProjects = frontendProjects.filter(p =>
+    stateKeywords.some(keyword =>
+      p.topics.some(topic => topic.includes(keyword)) ||
+      p.name.toLowerCase().includes(keyword) ||
+      p.description.toLowerCase().includes(keyword)
+    )
+  );
+  
+  if (stateProjects.length >= 2) scores['State Management'] = 3;
+  else if (stateProjects.length >= 1 || componentProjects.length >= 2) scores['State Management'] = 2;
+  else if (componentProjects.length >= 1) scores['State Management'] = 1;
+
+  // 5. API Integration (based on API-related keywords)
+  const apiKeywords = ['api', 'fetch', 'axios', 'graphql', 'rest', 'backend', 'server'];
+  const apiProjects = frontendProjects.filter(p =>
+    apiKeywords.some(keyword =>
+      p.topics.some(topic => topic.includes(keyword)) ||
+      p.name.toLowerCase().includes(keyword) ||
+      p.description.toLowerCase().includes(keyword)
+    )
+  );
+  
+  if (apiProjects.length >= 3) scores['API Integration'] = 3;
+  else if (apiProjects.length >= 2) scores['API Integration'] = 2;
+  else if (apiProjects.length >= 1) scores['API Integration'] = 1;
+
+  // 6. Authentication (based on auth-related keywords)
+  const authKeywords = ['auth', 'login', 'firebase', 'auth0', 'authentication', 'jwt', 'passport'];
+  const authProjects = frontendProjects.filter(p =>
+    authKeywords.some(keyword =>
+      p.topics.some(topic => topic.includes(keyword)) ||
+      p.name.toLowerCase().includes(keyword) ||
+      p.description.toLowerCase().includes(keyword)
+    )
+  );
+  
+  if (authProjects.length >= 2) scores['Authentication'] = 3;
+  else if (authProjects.length >= 1) scores['Authentication'] = 2;
+
+  // 7. Deployment (based on deployed projects)
+  const deployedProjects = frontendProjects.filter(p => p.homepage && p.homepage.length > 0);
+  const deploymentRatio = deployedProjects.length / Math.max(projectCount, 1);
+  
+  if (deploymentRatio >= 0.8) scores['Deployment'] = 3;
+  else if (deploymentRatio >= 0.5) scores['Deployment'] = 2;
+  else if (deploymentRatio >= 0.3) scores['Deployment'] = 1;
+
+  // 8. Code Quality (based on project structure indicators)
+  const qualityProjects = frontendProjects.filter(p => 
+    p.complexity_indicators.has_good_description && 
+    p.size_kb > 100 && 
+    p.topics.length > 1
+  );
+  
+  if (qualityProjects.length >= 3) scores['Code Quality'] = 3;
+  else if (qualityProjects.length >= 2) scores['Code Quality'] = 2;
+  else if (qualityProjects.length >= 1) scores['Code Quality'] = 1;
+
+  // 9. Accessibility (based on a11y keywords)
+  const a11yKeywords = ['accessibility', 'a11y', 'aria', 'wcag', 'semantic'];
+  const a11yProjects = frontendProjects.filter(p =>
+    a11yKeywords.some(keyword =>
+      p.topics.some(topic => topic.includes(keyword)) ||
+      p.name.toLowerCase().includes(keyword) ||
+      p.description.toLowerCase().includes(keyword)
+    )
+  );
+  
+  if (a11yProjects.length >= 2) scores['Accessibility'] = 3;
+  else if (a11yProjects.length >= 1) scores['Accessibility'] = 2;
+
+  // 10. Testing & Error Handling (based on testing keywords)
+  const testKeywords = ['test', 'testing', 'jest', 'cypress', 'playwright', 'vitest', 'unit-test'];
+  const testProjects = frontendProjects.filter(p =>
+    testKeywords.some(keyword =>
+      p.topics.some(topic => topic.includes(keyword)) ||
+      p.name.toLowerCase().includes(keyword) ||
+      p.description.toLowerCase().includes(keyword)
+    )
+  );
+  
+  if (testProjects.length >= 2) scores['Testing & Error Handling'] = 3;
+  else if (testProjects.length >= 1) scores['Testing & Error Handling'] = 2;
+
+  // 11. Animation & UX Polish (based on animation keywords)
+  const animationKeywords = ['animation', 'framer-motion', 'gsap', 'lottie', 'transition', 'motion'];
+  const animationProjects = frontendProjects.filter(p =>
+    animationKeywords.some(keyword =>
+      p.topics.some(topic => topic.includes(keyword)) ||
+      p.name.toLowerCase().includes(keyword) ||
+      p.description.toLowerCase().includes(keyword)
+    )
+  );
+  
+  if (animationProjects.length >= 2) scores['Animation & UX Polish'] = 3;
+  else if (animationProjects.length >= 1) scores['Animation & UX Polish'] = 2;
+
+  // 12. Real-World Use Case (based on project complexity and utility)
+  const realWorldProjects = frontendProjects.filter(p => 
+    p.size_kb > 200 && 
+    p.complexity_indicators.has_good_description &&
+    p.topics.length > 2 &&
+    !p.name.toLowerCase().includes('todo') &&
+    !p.name.toLowerCase().includes('tutorial')
+  );
+  
+  if (realWorldProjects.length >= 3) scores['Real-World Use Case'] = 3;
+  else if (realWorldProjects.length >= 2) scores['Real-World Use Case'] = 2;
+  else if (realWorldProjects.length >= 1) scores['Real-World Use Case'] = 1;
+
+  // 13. Documentation (based on README quality indicators)
+  const documentedProjects = frontendProjects.filter(p => 
+    p.complexity_indicators.has_good_description &&
+    p.topics.length > 0
+  );
+  
+  if (documentedProjects.length >= 3) scores['Documentation'] = 3;
+  else if (documentedProjects.length >= 2) scores['Documentation'] = 2;
+  else if (documentedProjects.length >= 1) scores['Documentation'] = 1;
+
+  // Calculate total score
+  const totalScore = Object.values(scores).reduce((sum, score) => sum + score, 0);
+
+  // Determine skill level based on total score
+  let skillLevel: 'Beginner' | 'Intermediate' | 'Industry-Ready' | 'Advanced';
+  let skillEmoji: string;
+  
+  if (totalScore >= 36) {
+    skillLevel = 'Advanced';
+    skillEmoji = '🧠';
+  } else if (totalScore >= 26) {
+    skillLevel = 'Industry-Ready';
+    skillEmoji = '🚀';
+  } else if (totalScore >= 16) {
+    skillLevel = 'Intermediate';
+    skillEmoji = '🌱';
+  } else {
+    skillLevel = 'Beginner';
+    skillEmoji = '🐣';
+  }
+
+  // Generate top skills based on scores
+  const topSkills = Object.entries(scores)
+    .filter(([_, score]) => score >= 2)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([skill, _]) => skill);
+
+  // Generate improvement suggestions based on lowest scores
+  const improvementAreas = Object.entries(scores)
+    .filter(([_, score]) => score <= 1)
+    .sort((a, b) => a[1] - b[1])
+    .slice(0, 3);
+
+  const improvementSuggestions: ImprovementSuggestion[] = improvementAreas.map(([area, score]) => {
+    const suggestions = {
+      'Authentication': {
+        title: 'Implement Authentication System',
+        description: 'Add Firebase Auth or Auth0 to your projects with login/logout flow and protected routes.',
+        resource: { topic: 'Firebase Authentication', link: 'https://firebase.google.com/docs/auth/web/start' },
+        estimated_time_hours: 8
+      },
+      'Testing & Error Handling': {
+        title: 'Add Testing Suite',
+        description: 'Implement Jest and React Testing Library for unit and integration tests.',
+        resource: { topic: 'React Testing Library', link: 'https://testing-library.com/docs/react-testing-library/intro' },
+        estimated_time_hours: 12
+      },
+      'Accessibility': {
+        title: 'Improve Accessibility',
+        description: 'Add semantic HTML, ARIA labels, and keyboard navigation to your projects.',
+        resource: { topic: 'Web Accessibility Guidelines', link: 'https://web.dev/accessibility' },
+        estimated_time_hours: 6
+      },
+      'Animation & UX Polish': {
+        title: 'Add Animations and Polish',
+        description: 'Implement smooth transitions and micro-interactions using Framer Motion or CSS animations.',
+        resource: { topic: 'Framer Motion', link: 'https://www.framer.com/motion/' },
+        estimated_time_hours: 10
+      }
+    };
+    
+    return suggestions[area as keyof typeof suggestions] || {
+      title: `Improve ${area}`,
+      description: `Focus on enhancing your ${area.toLowerCase()} skills through practice and learning.`,
+      resource: { topic: area, link: 'https://developer.mozilla.org/' },
+      estimated_time_hours: 8
+    };
+  });
+
+  return {
+    skill_level: skillLevel,
+    skill_emoji: skillEmoji,
+    total_score: totalScore,
+    score_breakdown: scores,
+    justification: `Based on ${frontendProjects.length} frontend projects analyzed. Score: ${totalScore}/39. ${skillLevel} level demonstrates ${skillLevel === 'Advanced' ? 'mastery across multiple domains' : skillLevel === 'Industry-Ready' ? 'solid professional skills' : skillLevel === 'Intermediate' ? 'good foundation with room for growth' : 'early-stage development skills'}.`,
+    top_skills: topSkills.length > 0 ? topSkills : ['JavaScript', 'HTML', 'CSS'],
+    projects: frontendProjects.map(p => p.name),
+    all_projects: [],
+    frontend_projects: [],
+    other_projects: [],
+    improvement_suggestions: improvementSuggestions,
+    motivation: skillLevel === 'Advanced' ? 'Outstanding work! You\'re at expert level. Consider mentoring others! 🎯' : 
+                skillLevel === 'Industry-Ready' ? 'Excellent skills! You\'re ready for senior roles. Keep innovating! 🚀' :
+                skillLevel === 'Intermediate' ? 'Great progress! Focus on the suggested areas to reach industry-ready level. 💪' :
+                'Good start! Every expert was once a beginner. Keep building and learning! 🌟'
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -227,13 +373,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create a cache key for this evaluation
-    const cacheKey = `eval_${github_username}_${portfolio_url || ''}_${skills_list || ''}`;
-    
-    // Check if we have a recent evaluation (cache for 1 hour)
-    const cachedEvaluation = await getCachedEvaluation(cacheKey);
-    if (cachedEvaluation) {
-      return NextResponse.json(cachedEvaluation);
+    // Create a hash for caching based on username and key profile data
+    const cacheKey = `${github_username}-${portfolio_url || ''}-${skills_list || ''}`;
+    const cacheHash = crypto.createHash('md5').update(cacheKey).digest('hex');
+
+    // Check cache first for consistent results
+    if (evaluationCache.has(cacheHash)) {
+      return NextResponse.json(evaluationCache.get(cacheHash));
     }
 
     // Fetch GitHub user data
@@ -246,8 +392,8 @@ export async function POST(request: NextRequest) {
     }
     const userData: GitHubUser = await userResponse.json();
 
-    // Fetch GitHub repositories - increased limit and sort by updated
-    const reposResponse = await fetch(`https://api.github.com/users/${github_username}/repos?per_page=100&sort=updated&type=owner`);
+    // Fetch GitHub repositories
+    const reposResponse = await fetch(`https://api.github.com/users/${github_username}/repos?per_page=100&sort=updated`);
     if (!reposResponse.ok) {
       return NextResponse.json(
         { error: 'Failed to fetch repositories' },
@@ -256,14 +402,21 @@ export async function POST(request: NextRequest) {
     }
     const reposData: GitHubRepo[] = await reposResponse.json();
 
+    // Create a more specific cache key based on repository data
+    const repoSignature = reposData.slice(0, 10).map(r => `${r.name}-${r.updated_at}`).join('|');
+    const specificCacheKey = `${github_username}-${repoSignature}`;
+    const specificCacheHash = crypto.createHash('md5').update(specificCacheKey).digest('hex');
+
+    // Check cache with specific key for better consistency
+    if (evaluationCache.has(specificCacheHash)) {
+      return NextResponse.json(evaluationCache.get(specificCacheHash));
+    }
+
     // Filter frontend-related repositories
     const frontendLanguages = ['JavaScript', 'TypeScript', 'HTML', 'CSS', 'Vue', 'Svelte'];
-    const frontendKeywords = ['react', 'vue', 'angular', 'next', 'nuxt', 'svelte', 'frontend', 'web', 'ui', 'website', 'app', 'portfolio', 'landing', 'dashboard', 'ecommerce', 'blog'];
+    const frontendKeywords = ['react', 'vue', 'angular', 'next', 'nuxt', 'svelte', 'frontend', 'web', 'ui', 'website', 'app'];
     
     const frontendRepos = reposData.filter(repo => {
-      // Skip forks unless they have significant modifications
-      if (repo.forks_count === 0 && repo.size < 100) return false;
-      
       const languageMatch = frontendLanguages.includes(repo.language);
       const nameMatch = frontendKeywords.some(keyword => 
         repo.name.toLowerCase().includes(keyword) || 
@@ -272,28 +425,35 @@ export async function POST(request: NextRequest) {
       const topicsMatch = repo.topics.some(topic => 
         frontendKeywords.some(keyword => topic.includes(keyword))
       );
-      
       return languageMatch || nameMatch || topicsMatch;
     });
 
-    // Get all non-fork repositories for project comparison
-    const allUserRepos = reposData.filter(repo => 
-      !repo.name.includes('.github.io') && // Exclude GitHub pages repos
-      repo.size > 50 && // Exclude very small repos
-      repo.name !== github_username // Exclude profile README repos
-    );
+    // Enhanced project analysis
+    const enhancedProjects: ProjectDetails[] = reposData.map(repo => ({
+      name: repo.name,
+      description: repo.description || '',
+      language: repo.language || 'Unknown',
+      size_kb: repo.size,
+      stars: repo.stargazers_count,
+      forks: repo.forks_count,
+      topics: repo.topics || [],
+      homepage: repo.homepage || '',
+      created_at: repo.created_at,
+      updated_at: repo.updated_at,
+      is_frontend: frontendRepos.includes(repo),
+      html_url: repo.html_url,
+      complexity_indicators: {
+        has_dependencies: repo.size > 100, // Assume projects >100KB have dependencies
+        has_deployment: !!repo.homepage,
+        has_good_description: (repo.description?.length || 0) > 20,
+        estimated_complexity: repo.size > 500 ? 'High' : repo.size > 100 ? 'Medium' : 'Low' as 'Low' | 'Medium' | 'High'
+      }
+    }));
 
-    // Combine frontend repos with other significant repos for comparison
-    const projectsForComparison = [
-      ...frontendRepos.map(repo => repo.name),
-      ...allUserRepos
-        .filter(repo => !frontendRepos.some(fr => fr.name === repo.name))
-        .slice(0, 10) // Add up to 10 non-frontend repos
-        .map(repo => repo.name)
-    ];
+    const frontendProjectDetails = enhancedProjects.filter(p => p.is_frontend);
+    const otherProjectDetails = enhancedProjects.filter(p => !p.is_frontend);
 
-    // Prepare data for deterministic analysis with consistent timestamps
-    const baseDate = new Date('2024-01-01'); // Use fixed base date for consistency
+    // Prepare data for AI analysis
     const analysisData = {
       user: {
         username: userData.login,
@@ -313,131 +473,143 @@ export async function POST(request: NextRequest) {
         size_kb: repo.size,
         topics: repo.topics,
         homepage: repo.homepage,
-        // Use relative days from base date for consistency
-        age_days: Math.floor((new Date(repo.created_at).getTime() - baseDate.getTime()) / (1000 * 60 * 60 * 24)),
-        last_updated_days: Math.floor((new Date(repo.updated_at).getTime() - baseDate.getTime()) / (1000 * 60 * 60 * 24))
-      })).sort((a, b) => a.name.localeCompare(b.name)), // Sort for consistency
-      all_projects: projectsForComparison.sort(), // Sort for consistency
+        age_days: Math.floor((Date.now() - new Date(repo.created_at).getTime()) / (1000 * 60 * 60 * 24)),
+        last_updated_days: Math.floor((Date.now() - new Date(repo.updated_at).getTime()) / (1000 * 60 * 60 * 24))
+      })),
       portfolio_url: portfolio_url || userData.blog,
       claimed_skills: skills_list || '',
-      total_frontend_repos: frontendRepos.length,
-      total_repos: allUserRepos.length
+      total_frontend_repos: frontendRepos.length
     };
 
-    // Calculate deterministic scores
-    const scoreBreakdown = calculateDeterministicScore(analysisData.repositories, analysisData.user);
-    const totalScore = Object.values(scoreBreakdown).reduce((sum, score) => sum + score, 0);
-    const skillLevel = getSkillLevelFromScore(totalScore);
+    // Create deterministic evaluation using objective scoring
+    const deterministicEvaluation = createDeterministicEvaluation(analysisData, frontendProjectDetails);
 
-    // Generate consistent suggestions based on lowest scores
-    const improvements = Object.entries(scoreBreakdown)
-      .filter(([_, score]) => score <= 1)
-      .sort(([a], [b]) => a.localeCompare(b)) // Sort alphabetically for consistency
-      .slice(0, 3);
+    // Call Gemini API for analysis with low temperature for consistency
+    const geminiResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=' + process.env.GEMINI_API_KEY, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: `You are an expert frontend developer evaluator. Use the provided DETERMINISTIC SCORING as your base evaluation and only make minimal adjustments if absolutely necessary.
 
-    const improvementSuggestions = improvements.map(([category, score]) => {
-      const suggestions: Record<string, any> = {
-        "Testing & Error Handling": {
-          title: "Implement Comprehensive Testing",
-          description: "Add Jest + React Testing Library to your main project. Include unit tests for components and integration tests for user flows.",
-          resource: { topic: "React Testing Best Practices", link: "https://testing-library.com/docs/react-testing-library/intro/" },
-          estimated_time_hours: 8
+DETERMINISTIC BASE EVALUATION:
+${JSON.stringify(deterministicEvaluation, null, 2)}
+
+GitHub Profile Analysis Data:
+${JSON.stringify(analysisData, null, 2)}
+
+🎯 IMPORTANT: Use the deterministic scoring as your foundation. Only adjust scores by ±1 point if you find clear evidence that contradicts the base evaluation.
+
+📊 EVALUATION RULES (must be followed exactly):
+1. **UI Complexity**: Based on project count and size
+2. **Styling Mastery**: Based on CSS/styling technologies found
+3. **Component Structure**: Based on project architecture indicators
+4. **State Management**: Based on framework usage patterns
+5. **API Integration**: Based on API-related keywords and patterns
+6. **Authentication**: Based on auth-related keywords
+7. **Deployment**: Based on homepage URLs (deployed projects)
+8. **Code Quality**: Based on project structure and naming
+9. **Accessibility**: Based on semantic HTML indicators
+10. **Testing & Error Handling**: Based on test files and error patterns
+11. **Animation & UX Polish**: Based on animation libraries
+12. **Real-World Use Case**: Based on project complexity and utility
+13. **Documentation**: Based on README quality and documentation
+
+🎯 SKILL LEVEL ASSIGNMENT (FIXED THRESHOLDS):
+- 0-15 → Beginner 🐣
+- 16-25 → Intermediate 🌱  
+- 26-35 → Industry-Ready 🚀
+- 36-39 → Advanced 🧠
+
+OUTPUT FORMAT: Return the deterministic evaluation with minimal changes only if absolutely necessary. Maintain consistency for the same profile.
+
+Only return JSON. No explanations or additional text.`
+          }]
+        }],
+        generationConfig: {
+          temperature: 0.1,
+          topK: 1,
+          topP: 0.1,
+          maxOutputTokens: 2048,
         },
-        "Accessibility": {
-          title: "Accessibility Audit & Implementation", 
-          description: "Use axe-core to audit your apps, add proper ARIA labels, semantic HTML, and keyboard navigation support.",
-          resource: { topic: "Web Accessibility Guidelines", link: "https://web.dev/accessibility/" },
-          estimated_time_hours: 6
-        },
-        "Authentication": {
-          title: "Authentication System Integration",
-          description: "Implement a complete auth flow with JWT tokens, protected routes, and user session management using Firebase or Auth0.",
-          resource: { topic: "Firebase Authentication", link: "https://firebase.google.com/docs/auth/web/start" },
-          estimated_time_hours: 10
-        },
-        "Deployment": {
-          title: "Deploy Your Applications",
-          description: "Learn deployment strategies using Vercel, Netlify, or similar platforms. Ensure all projects are live and accessible.",
-          resource: { topic: "Deployment Guide", link: "https://vercel.com/docs" },
-          estimated_time_hours: 4
-        },
-        "Animation & UX Polish": {
-          title: "Add Smooth Animations",
-          description: "Implement Framer Motion or CSS animations to enhance user experience with smooth transitions and micro-interactions.",
-          resource: { topic: "Framer Motion Guide", link: "https://www.framer.com/motion/" },
-          estimated_time_hours: 6
-        }
-      };
-      
-      return suggestions[category] || {
-        title: `Improve ${category}`,
-        description: `Focus on enhancing your ${category.toLowerCase()} skills through practice and implementation.`,
-        resource: { topic: "Frontend Development", link: "https://developer.mozilla.org/" },
-        estimated_time_hours: 5
-      };
+        safetySettings: [
+          {
+            category: 'HARM_CATEGORY_HARASSMENT',
+            threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+          },
+          {
+            category: 'HARM_CATEGORY_HATE_SPEECH',
+            threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+          },
+          {
+            category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+            threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+          },
+          {
+            category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+            threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+          }
+        ]
+      }),
     });
 
-    // Determine strengths (scores >= 2)
-    const strengths = Object.entries(scoreBreakdown)
-      .filter(([_, score]) => score >= 2)
-      .map(([category]) => {
-        const strengthDescriptions: Record<string, string> = {
-          "UI Complexity": "Building complex, multi-page applications",
-          "Styling Mastery": "Modern CSS frameworks and styling techniques",
-          "Component Structure": "Well-organized, reusable component architecture",
-          "State Management": "Effective state management patterns",
-          "API Integration": "Solid API integration and data handling",
-          "Deployment": "Active deployment and hosting practices",
-          "Code Quality": "Clean, well-structured code organization",
-          "Documentation": "Good documentation and project descriptions"
+    if (!geminiResponse.ok) {
+      throw new Error('Failed to get AI analysis');
+    }
+
+    const geminiResult = await geminiResponse.json();
+    const aiResponseText = geminiResult.candidates[0].content.parts[0].text;
+
+    // Parse the JSON response from Gemini
+    let evaluation: EvaluationResponse;
+    try {
+      // Clean up the response to extract JSON
+      const jsonMatch = aiResponseText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const aiEvaluation = JSON.parse(jsonMatch[0]);
+        // Merge AI evaluation with deterministic base, preferring deterministic scores for consistency
+        evaluation = {
+          ...deterministicEvaluation,
+          ...aiEvaluation,
+          // Always use deterministic scores for consistency
+          score_breakdown: deterministicEvaluation.score_breakdown,
+          total_score: deterministicEvaluation.total_score,
+          skill_level: deterministicEvaluation.skill_level,
+          skill_emoji: deterministicEvaluation.skill_emoji,
+          // Use AI for textual content if available
+          justification: aiEvaluation.justification || deterministicEvaluation.justification,
+          improvement_suggestions: aiEvaluation.improvement_suggestions || deterministicEvaluation.improvement_suggestions,
+          motivation: aiEvaluation.motivation || deterministicEvaluation.motivation,
+          // Add the enhanced project data
+          all_projects: enhancedProjects,
+          frontend_projects: frontendProjectDetails,
+          other_projects: otherProjectDetails
         };
-        return strengthDescriptions[category] || `Strong ${category.toLowerCase()} implementation`;
-      })
-      .sort(); // Sort for consistency
+      } else {
+        throw new Error('No valid JSON found in AI response');
+      }
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', parseError);
+      // Use deterministic evaluation as fallback
+      evaluation = deterministicEvaluation;
+      evaluation.all_projects = enhancedProjects;
+      evaluation.frontend_projects = frontendProjectDetails;
+      evaluation.other_projects = otherProjectDetails;
+    }
 
-    // Determine priority improvements (scores 0-1)
-    const priorityImprovements = Object.entries(scoreBreakdown)
-      .filter(([_, score]) => score <= 1)
-      .map(([category]) => category)
-      .sort(); // Sort for consistency
+    // Cache the result for consistency
+    evaluationCache.set(specificCacheHash, evaluation);
 
-    // Identify top skills based on evidence
-    const topSkills = [];
-    if (analysisData.repositories.some(repo => repo.language === 'TypeScript')) topSkills.push('TypeScript');
-    else if (analysisData.repositories.some(repo => repo.language === 'JavaScript')) topSkills.push('JavaScript');
-    
-    if (scoreBreakdown["Component Structure"] >= 2) topSkills.push('React');
-    if (scoreBreakdown["Styling Mastery"] >= 2) topSkills.push('CSS/Styling');
-    if (scoreBreakdown["API Integration"] >= 2) topSkills.push('API Integration');
-    if (scoreBreakdown["Deployment"] >= 2) topSkills.push('Deployment');
-    topSkills.push('Git', 'HTML');
-
-    const evaluation: EvaluationResponse = {
-      score_breakdown: scoreBreakdown,
-      total_score: totalScore,
-      skill_level: skillLevel.level,
-      skill_emoji: skillLevel.emoji,
-      justification: `Based on ${analysisData.total_frontend_repos} frontend repositories and ${analysisData.total_repos} total projects. Score: ${totalScore}/39 (${Math.round((totalScore/39)*100)}%). ${
-        skillLevel.level === 'Advanced' ? 'Excellent technical skills with production-ready capabilities.' :
-        skillLevel.level === 'Industry-Ready' ? 'Strong foundation with most industry-standard practices in place.' :
-        skillLevel.level === 'Intermediate' ? 'Good progress with solid fundamentals, ready for more advanced concepts.' :
-        'Learning the fundamentals with room for growth in multiple areas.'
-      }`,
-      top_skills: topSkills.slice(0, 5),
-      projects: projectsForComparison,
-      strengths: strengths.slice(0, 5),
-      priority_improvements: priorityImprovements.slice(0, 3),
-      improvement_suggestions: improvementSuggestions,
-      motivation: `${skillLevel.level === 'Advanced' ? 'Keep pushing boundaries and mentoring others!' :
-        skillLevel.level === 'Industry-Ready' ? 'You\'re ready for professional challenges. Keep refining!' :
-        skillLevel.level === 'Intermediate' ? 'Great progress! Focus on your weak areas to level up.' :
-        'Every expert was once a beginner. Keep building and learning!'} 🚀`,
-      cached_result: false,
-      evaluation_timestamp: new Date().toISOString()
-    };
-
-    // Cache the evaluation for consistency
-    setCachedEvaluation(cacheKey, evaluation);
+    // Optional: Clear cache after some time to avoid memory issues
+    if (evaluationCache.size > 100) {
+      const firstKey = evaluationCache.keys().next().value;
+      if (firstKey) {
+        evaluationCache.delete(firstKey);
+      }
+    }
 
     return NextResponse.json(evaluation);
 
