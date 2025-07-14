@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, SetStateAction } from "react";
 import ReactMarkdown from "react-markdown";
 import { ArrowDownCircle, BookOpen, Clock, Search, ChevronRight, 
          BookMarked, Award, Briefcase, Sparkles } from "lucide-react";
@@ -10,9 +10,9 @@ export default function TargetCompanyRoadmap() {
   const [role, setRole] = useState('');
   const [loading, setLoading] = useState(false);
   const [roadmap, setRoadmap] = useState('');
-  const [activeSection, setActiveSection] = useState(null);
-  const [error, setError] = useState(null);
-  const roadmapRef = useRef(null);
+  const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const roadmapRef = useRef<HTMLDivElement>(null);
   const [estimatedReadTime, setEstimatedReadTime] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -80,19 +80,17 @@ export default function TargetCompanyRoadmap() {
         })
     : [];
 
-  const scrollToSection = (section) => {
+  const scrollToSection = (section: string) => {
     setActiveSection(section);
-    if (typeof section === 'string') {
-      const element = document.getElementById(section.replace(/\s+/g, '-').toLowerCase());
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
+    const element = document.getElementById(section.replace(/\s+/g, '-').toLowerCase());
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
 
   // Custom renderer for ReactMarkdown
   const customRenderers = {
-    h2: (({ children }) => {
+    h2: ({ children, ...props }: { children?: React.ReactNode }) => {
       const text = children ? children.toString() : '';
       const match = text.match(/\d+\.\s*(.*)/);
       const sectionTitle = match ? match[1] : text;
@@ -102,19 +100,20 @@ export default function TargetCompanyRoadmap() {
         <h2 
           id={id} 
           className="text-2xl font-bold text-indigo-700 mt-10 mb-6 pb-3 border-b border-indigo-100"
+          {...props}
         >
           {text}
         </h2>
       );
-    }),
-    ul: (({ children }) => (
-      <ul className="list-disc ml-6 my-5 space-y-3">
+    },
+    ul: ({ children, ...props }: { children?: React.ReactNode }) => (
+      <ul className="list-disc ml-6 my-5 space-y-3" {...props}>
         {children}
       </ul>
-    )),
-    li: (({ children }: { children: React.ReactNode }) => (
-      <li className="text-gray-700">{children}</li>
-    )),
+    ),
+    li: ({ children, ...props }: { children?: React.ReactNode }) => (
+      <li className="text-gray-700" {...props}>{children}</li>
+    ),
   };
 
   const toggleSidebar = () => {
