@@ -1109,8 +1109,29 @@ Only return JSON. No explanations or additional text.`
             ["Active development", "Good project structure potential"],
           areas_to_improve: ["Comprehensive code analysis needed", "Detailed functionality review required"],
           market_relevance: {
-            score: 5,
-            description: "Market analysis pending - requires detailed evaluation",
+            score: (() => {
+              let score = 4; // Base score
+              score += codeAnalysis1.keyFeatures?.length > 3 ? 2 : 0;
+              score += codeAnalysis1.projectPurpose ? 1 : 0;
+              score += comparisonData.project1.homepage ? 1 : 0;
+              score += (comparisonData.project1.stars || 0) > 10 ? 1 : 0;
+              score += (comparisonData.project1.forks || 0) > 5 ? 1 : 0;
+              return Math.min(score, 10);
+            })(),
+            description: (() => {
+              const score = (() => {
+                let score = 4;
+                score += codeAnalysis1.keyFeatures?.length > 3 ? 2 : 0;
+                score += codeAnalysis1.projectPurpose ? 1 : 0;
+                score += comparisonData.project1.homepage ? 1 : 0;
+                score += (comparisonData.project1.stars || 0) > 10 ? 1 : 0;
+                score += (comparisonData.project1.forks || 0) > 5 ? 1 : 0;
+                return Math.min(score, 10);
+              })();
+              if (score >= 8) return "Strong market relevance with clear value proposition";
+              if (score >= 6) return "Good market potential with room for growth";
+              return "Moderate market relevance - needs strategic positioning";
+            })(),
             detailed_analysis: {
               market_demand: "Market demand assessment requires comprehensive analysis of target audience and competitive landscape",
               target_audience: "Target audience identification pending - needs user research and market segmentation analysis",
@@ -1120,8 +1141,29 @@ Only return JSON. No explanations or additional text.`
             }
           },
           ux_complexity: {
-            score: 5,
-            description: "UX analysis pending - requires interface review",
+            score: (() => {
+              let score = 4; // Base score
+              score += codeAnalysis1.technologyStack?.frontend?.includes('React') ? 2 : 0;
+              score += codeAnalysis1.technologyStack?.frontend?.includes('Next.js') ? 1 : 0;
+              score += codeAnalysis1.actualCode?.some((file: any) => file.name.includes('css') || file.name.includes('style')) ? 1 : 0;
+              score += codeAnalysis1.keyFeatures?.some((feature: string) => feature.toLowerCase().includes('ui') || feature.toLowerCase().includes('interface')) ? 1 : 0;
+              score += codeAnalysis1.technologyStack?.frontend?.includes('Tailwind') ? 1 : 0;
+              return Math.min(score, 10);
+            })(),
+            description: (() => {
+              const score = (() => {
+                let score = 4;
+                score += codeAnalysis1.technologyStack?.frontend?.includes('React') ? 2 : 0;
+                score += codeAnalysis1.technologyStack?.frontend?.includes('Next.js') ? 1 : 0;
+                score += codeAnalysis1.actualCode?.some((file: any) => file.name.includes('css') || file.name.includes('style')) ? 1 : 0;
+                score += codeAnalysis1.keyFeatures?.some((feature: string) => feature.toLowerCase().includes('ui') || feature.toLowerCase().includes('interface')) ? 1 : 0;
+                score += codeAnalysis1.technologyStack?.frontend?.includes('Tailwind') ? 1 : 0;
+                return Math.min(score, 10);
+              })();
+              if (score >= 8) return "Advanced UX with modern frameworks and styling";
+              if (score >= 6) return "Good UX implementation with room for enhancement";
+              return "Basic UX - needs modern frameworks and better styling";
+            })(),
             detailed_analysis: {
               interface_sophistication: "Interface sophistication assessment pending - needs UI/UX design pattern analysis",
               user_experience_flow: "User experience flow evaluation pending - requires user journey mapping and usability testing",
@@ -1131,8 +1173,29 @@ Only return JSON. No explanations or additional text.`
             }
           },
           technical_depth: {
-            score: 5,
-            analysis: "Technical analysis pending - requires code review",
+            score: (() => {
+              let score = 4; // Base score
+              score += codeAnalysis1.technologyStack?.backend?.length > 0 ? 2 : 0;
+              score += codeAnalysis1.technologyStack?.database?.length > 0 ? 1 : 0;
+              score += codeAnalysis1.technologyStack?.tools?.length > 2 ? 1 : 0;
+              score += codeAnalysis1.actualCode?.length > 5 ? 1 : 0;
+              score += codeAnalysis1.keyFeatures?.some((feature: string) => feature.toLowerCase().includes('api') || feature.toLowerCase().includes('database')) ? 1 : 0;
+              return Math.min(score, 10);
+            })(),
+            analysis: (() => {
+              const score = (() => {
+                let score = 4;
+                score += codeAnalysis1.technologyStack?.backend?.length > 0 ? 2 : 0;
+                score += codeAnalysis1.technologyStack?.database?.length > 0 ? 1 : 0;
+                score += codeAnalysis1.technologyStack?.tools?.length > 2 ? 1 : 0;
+                score += codeAnalysis1.actualCode?.length > 5 ? 1 : 0;
+                score += codeAnalysis1.keyFeatures?.some((feature: string) => feature.toLowerCase().includes('api') || feature.toLowerCase().includes('database')) ? 1 : 0;
+                return Math.min(score, 10);
+              })();
+              if (score >= 8) return "Deep technical implementation with full-stack capabilities";
+              if (score >= 6) return "Good technical depth with some advanced features";
+              return "Basic technical implementation - needs more advanced features";
+            })(),
             detailed_analysis: {
               code_architecture: "Code architecture assessment pending - needs design pattern and structural analysis",
               performance_optimization: "Performance optimization evaluation pending - requires load testing and bottleneck analysis",
@@ -1143,8 +1206,27 @@ Only return JSON. No explanations or additional text.`
             }
           },
           innovation_gap: {
-            score: 5,
-            analysis: "Innovation analysis pending - requires feature evaluation",
+            score: (() => {
+              let score = 4; // Base score
+              score += codeAnalysis1.keyFeatures?.length > 5 ? 2 : 0;
+              score += codeAnalysis1.technologyStack?.frontend?.some((tech: string) => tech.includes('Next.js') || tech.includes('React')) ? 1 : 0;
+              score += codeAnalysis1.projectPurpose?.toLowerCase().includes('ai') || codeAnalysis1.projectPurpose?.toLowerCase().includes('machine learning') ? 2 : 0;
+              score += codeAnalysis1.keyFeatures?.some((feature: string) => feature.toLowerCase().includes('real-time') || feature.toLowerCase().includes('interactive')) ? 1 : 0;
+              return Math.min(score, 10);
+            })(),
+            analysis: (() => {
+              const score = (() => {
+                let score = 4;
+                score += codeAnalysis1.keyFeatures?.length > 5 ? 2 : 0;
+                score += codeAnalysis1.technologyStack?.frontend?.some((tech: string) => tech.includes('Next.js') || tech.includes('React')) ? 1 : 0;
+                score += codeAnalysis1.projectPurpose?.toLowerCase().includes('ai') || codeAnalysis1.projectPurpose?.toLowerCase().includes('machine learning') ? 2 : 0;
+                score += codeAnalysis1.keyFeatures?.some((feature: string) => feature.toLowerCase().includes('real-time') || feature.toLowerCase().includes('interactive')) ? 1 : 0;
+                return Math.min(score, 10);
+              })();
+              if (score >= 8) return "Highly innovative with cutting-edge features and technologies";
+              if (score >= 6) return "Good innovation with modern approaches and unique features";
+              return "Moderate innovation - needs more unique features and modern approaches";
+            })(),
             detailed_analysis: {
               unique_features: "Unique features assessment pending - needs feature differentiation and novelty analysis",
               creative_solutions: "Creative solutions evaluation pending - requires problem-solving approach and innovation assessment",
@@ -1191,8 +1273,29 @@ Only return JSON. No explanations or additional text.`
             ["Active development", "Good project structure potential"],
           areas_to_improve: ["Comprehensive code analysis needed", "Detailed functionality review required"],
           market_relevance: {
-            score: 5,
-            description: "Market analysis pending - requires detailed evaluation",
+            score: (() => {
+              let score = 4; // Base score
+              score += codeAnalysis2.keyFeatures?.length > 3 ? 2 : 0;
+              score += codeAnalysis2.projectPurpose ? 1 : 0;
+              score += comparisonData.project2.homepage ? 1 : 0;
+              score += (comparisonData.project2.stars || 0) > 10 ? 1 : 0;
+              score += (comparisonData.project2.forks || 0) > 5 ? 1 : 0;
+              return Math.min(score, 10);
+            })(),
+            description: (() => {
+              const score = (() => {
+                let score = 4;
+                score += codeAnalysis2.keyFeatures?.length > 3 ? 2 : 0;
+                score += codeAnalysis2.projectPurpose ? 1 : 0;
+                score += comparisonData.project2.homepage ? 1 : 0;
+                score += (comparisonData.project2.stars || 0) > 10 ? 1 : 0;
+                score += (comparisonData.project2.forks || 0) > 5 ? 1 : 0;
+                return Math.min(score, 10);
+              })();
+              if (score >= 8) return "Strong market relevance with clear value proposition";
+              if (score >= 6) return "Good market potential with room for growth";
+              return "Moderate market relevance - needs strategic positioning";
+            })(),
             detailed_analysis: {
               market_demand: "Market demand assessment requires comprehensive analysis of target audience and competitive landscape",
               target_audience: "Target audience identification pending - needs user research and market segmentation analysis",
@@ -1202,8 +1305,29 @@ Only return JSON. No explanations or additional text.`
             }
           },
           ux_complexity: {
-            score: 5,
-            description: "UX analysis pending - requires interface review",
+            score: (() => {
+              let score = 4; // Base score
+              score += codeAnalysis2.technologyStack?.frontend?.includes('React') ? 2 : 0;
+              score += codeAnalysis2.technologyStack?.frontend?.includes('Next.js') ? 1 : 0;
+              score += codeAnalysis2.actualCode?.some((file: any) => file.name.includes('css') || file.name.includes('style')) ? 1 : 0;
+              score += codeAnalysis2.keyFeatures?.some((feature: string) => feature.toLowerCase().includes('ui') || feature.toLowerCase().includes('interface')) ? 1 : 0;
+              score += codeAnalysis2.technologyStack?.frontend?.includes('Tailwind') ? 1 : 0;
+              return Math.min(score, 10);
+            })(),
+            description: (() => {
+              const score = (() => {
+                let score = 4;
+                score += codeAnalysis2.technologyStack?.frontend?.includes('React') ? 2 : 0;
+                score += codeAnalysis2.technologyStack?.frontend?.includes('Next.js') ? 1 : 0;
+                score += codeAnalysis2.actualCode?.some((file: any) => file.name.includes('css') || file.name.includes('style')) ? 1 : 0;
+                score += codeAnalysis2.keyFeatures?.some((feature: string) => feature.toLowerCase().includes('ui') || feature.toLowerCase().includes('interface')) ? 1 : 0;
+                score += codeAnalysis2.technologyStack?.frontend?.includes('Tailwind') ? 1 : 0;
+                return Math.min(score, 10);
+              })();
+              if (score >= 8) return "Advanced UX with modern frameworks and styling";
+              if (score >= 6) return "Good UX implementation with room for enhancement";
+              return "Basic UX - needs modern frameworks and better styling";
+            })(),
             detailed_analysis: {
               interface_sophistication: "Interface sophistication assessment pending - needs UI/UX design pattern analysis",
               user_experience_flow: "User experience flow evaluation pending - requires user journey mapping and usability testing",
@@ -1213,8 +1337,29 @@ Only return JSON. No explanations or additional text.`
             }
           },
           technical_depth: {
-            score: 5,
-            analysis: "Technical analysis pending - requires code review",
+            score: (() => {
+              let score = 4; // Base score
+              score += codeAnalysis2.technologyStack?.backend?.length > 0 ? 2 : 0;
+              score += codeAnalysis2.technologyStack?.database?.length > 0 ? 1 : 0;
+              score += codeAnalysis2.technologyStack?.tools?.length > 2 ? 1 : 0;
+              score += codeAnalysis2.actualCode?.length > 5 ? 1 : 0;
+              score += codeAnalysis2.keyFeatures?.some((feature: string) => feature.toLowerCase().includes('api') || feature.toLowerCase().includes('database')) ? 1 : 0;
+              return Math.min(score, 10);
+            })(),
+            analysis: (() => {
+              const score = (() => {
+                let score = 4;
+                score += codeAnalysis2.technologyStack?.backend?.length > 0 ? 2 : 0;
+                score += codeAnalysis2.technologyStack?.database?.length > 0 ? 1 : 0;
+                score += codeAnalysis2.technologyStack?.tools?.length > 2 ? 1 : 0;
+                score += codeAnalysis2.actualCode?.length > 5 ? 1 : 0;
+                score += codeAnalysis2.keyFeatures?.some((feature: string) => feature.toLowerCase().includes('api') || feature.toLowerCase().includes('database')) ? 1 : 0;
+                return Math.min(score, 10);
+              })();
+              if (score >= 8) return "Deep technical implementation with full-stack capabilities";
+              if (score >= 6) return "Good technical depth with some advanced features";
+              return "Basic technical implementation - needs more advanced features";
+            })(),
             detailed_analysis: {
               code_architecture: "Code architecture assessment pending - needs design pattern and structural analysis",
               performance_optimization: "Performance optimization evaluation pending - requires load testing and bottleneck analysis",
@@ -1225,8 +1370,27 @@ Only return JSON. No explanations or additional text.`
             }
           },
           innovation_gap: {
-            score: 5,
-            analysis: "Innovation analysis pending - requires feature evaluation",
+            score: (() => {
+              let score = 4; // Base score
+              score += codeAnalysis2.keyFeatures?.length > 5 ? 2 : 0;
+              score += codeAnalysis2.technologyStack?.frontend?.some((tech: string) => tech.includes('Next.js') || tech.includes('React')) ? 1 : 0;
+              score += codeAnalysis2.projectPurpose?.toLowerCase().includes('ai') || codeAnalysis2.projectPurpose?.toLowerCase().includes('machine learning') ? 2 : 0;
+              score += codeAnalysis2.keyFeatures?.some((feature: string) => feature.toLowerCase().includes('real-time') || feature.toLowerCase().includes('interactive')) ? 1 : 0;
+              return Math.min(score, 10);
+            })(),
+            analysis: (() => {
+              const score = (() => {
+                let score = 4;
+                score += codeAnalysis2.keyFeatures?.length > 5 ? 2 : 0;
+                score += codeAnalysis2.technologyStack?.frontend?.some((tech: string) => tech.includes('Next.js') || tech.includes('React')) ? 1 : 0;
+                score += codeAnalysis2.projectPurpose?.toLowerCase().includes('ai') || codeAnalysis2.projectPurpose?.toLowerCase().includes('machine learning') ? 2 : 0;
+                score += codeAnalysis2.keyFeatures?.some((feature: string) => feature.toLowerCase().includes('real-time') || feature.toLowerCase().includes('interactive')) ? 1 : 0;
+                return Math.min(score, 10);
+              })();
+              if (score >= 8) return "Highly innovative with cutting-edge features and technologies";
+              if (score >= 6) return "Good innovation with modern approaches and unique features";
+              return "Moderate innovation - needs more unique features and modern approaches";
+            })(),
             detailed_analysis: {
               unique_features: "Unique features assessment pending - needs feature differentiation and novelty analysis",
               creative_solutions: "Creative solutions evaluation pending - requires problem-solving approach and innovation assessment",
