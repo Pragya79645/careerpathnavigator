@@ -21,7 +21,9 @@ import {
   MapPin,
   Route,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  Code,
+  Compass
 } from "lucide-react"
 import { usePathname } from "next/navigation"
 import Image from "next/image"
@@ -66,6 +68,12 @@ const careerItems = [
     icon: FileText,
     description: "AI-powered analysis"
   },
+    {
+    title: "GitGaze",
+    url: "/portfolioranker",
+    icon: Code,
+    description: "AI-powered analysis"
+  },
   {
     title: "Career Counselor",
     url: "/counselor",
@@ -75,7 +83,7 @@ const careerItems = [
   {
     title: "Career Path",
     url: "/path",
-    icon: Route,
+    icon: Compass,
     description: "Plan your journey"
   },
   {
@@ -109,29 +117,19 @@ const jobItems = [
 
 const toolItems = [
   {
-    title: "Ask Groq AI",
+    title: "Ask Gen AI",
     url: "/askGroq",
     icon: Sparkles,
     description: "AI assistant"
   },
-  {
-    title: "Voice Assistant",
-    url: "/voice",
-    icon: Mic,
-    description: "Voice commands"
-  },
+ 
   {
     title: "Workflow Manager",
     url: "/WorkflowManager",
     icon: Settings,
     description: "Organize tasks"
   },
-  {
-    title: "Career Map",
-    url: "/map",
-    icon: MapPin,
-    description: "Explore paths"
-  },
+
 ]
 
 const authItems = [
@@ -141,12 +139,7 @@ const authItems = [
     icon: LogIn,
     description: "Access your account"
   },
-  {
-    title: "Login",
-    url: "/login",
-    icon: User,
-    description: "Quick access"
-  },
+ 
 ]
 
 // Mobile bottom nav items (most important)
