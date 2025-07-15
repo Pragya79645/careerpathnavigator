@@ -49,7 +49,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json() as RequestBody;
     const { role, questionType, company, mode = 'interview' } = body;
     
+    console.log('API Request received:', { role, questionType, company, mode });
+    
     if (!role) {
+      console.error('Validation failed: Role is required');
       return NextResponse.json(
         { error: 'Role is required' },
         { status: 400 }
@@ -58,6 +61,7 @@ export async function POST(req: NextRequest) {
 
     // Validate questionType
     if (!['technical', 'behavioral', 'dsa', 'all'].includes(questionType)) {
+      console.error('Validation failed: Invalid question type:', questionType);
       return NextResponse.json(
         { error: 'Invalid question type' },
         { status: 400 }
@@ -66,18 +70,34 @@ export async function POST(req: NextRequest) {
 
     // Validate displayMode
     if (mode !== 'interview' && mode !== 'flashcard') {
+      console.error('Validation failed: Invalid display mode:', mode);
       return NextResponse.json(
         { error: 'Invalid display mode' },
         { status: 400 }
       );
     }
 
+    // Check if GROQ_API_KEY is available
+    if (!process.env.GROQ_API_KEY) {
+      console.error('GROQ_API_KEY environment variable is not set');
+      return NextResponse.json(
+        { error: 'Server configuration error: API key not configured' },
+        { status: 500 }
+      );
+    }
+
+    console.log('Validation passed, constructing prompt...');
+
     // Construct the prompt based on the role, question type, company, and mode
     const prompt = constructPrompt(role, questionType, company?.trim(), mode);
     
+    console.log('Prompt constructed, calling Groq API...');
+
     // Call the Groq API
     const response = await fetchInterviewPrepFromGroq(prompt);
     
+    console.log('Groq API response received successfully');
+
     // Ensure the response includes the correct displayMode
     response.displayMode = mode;
     
@@ -85,11 +105,50 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error generating interview questions:', error);
+    
+    // More detailed error logging
+    if (error instanceof Error) {
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+      
+      // Return more specific error messages
+      if (error.message.includes('GROQ_API_KEY')) {
+        return NextResponse.json(
+          { error: 'API configuration error. Please check server configuration.' },
+          { status: 500 }
+        );
+      }
+      
+      if (error.message.includes('Groq API error')) {
+        return NextResponse.json(
+          { error: 'External API error. Please try again in a moment.' },
+          { status: 503 }
+        );
+      }
+      
+      if (error.message.includes('Failed to parse response')) {
+        return NextResponse.json(
+          { error: 'Response parsing error. Please try again.' },
+          { status: 502 }
+        );
+      }
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to generate interview questions' },
+      { error: 'Failed to generate interview questions. Please try again.' },
       { status: 500 }
     );
   }
+}
+
+// Add a GET endpoint for health check
+export async function GET() {
+  return NextResponse.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    hasApiKey: !!process.env.GROQ_API_KEY,
+    nodeEnv: process.env.NODE_ENV || 'development'
+  });
 }
 
 function constructPrompt(role: string, questionType: string, company?: string, displayMode: 'interview' | 'flashcard' = 'interview'): string {
@@ -794,53 +853,71 @@ async function fetchInterviewPrepFromGroq(prompt: string): Promise<InterviewPrep
     throw new Error('GROQ_API_KEY environment variable is not set');
   }
   
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'llama3-70b-8192', // Use appropriate Groq model
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an AI assistant specialized in generating relevant interview questions and high-quality suggested answers for various job roles. Your responses should be specific, concise, and focused on real interview scenarios for the requested role. When generating DSA questions, include clear problem statements, expected inputs/outputs, and detailed algorithm explanations with code samples. Output must be in valid JSON format exactly as specified in the prompt.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: 8192, // Increased for 12-15 comprehensive questions with detailed answers
-      response_format: { type: "json_object" } // Ensure JSON response
-    }),
-  });
+  console.log('Making request to Groq API...');
   
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(`Groq API error: ${JSON.stringify(errorData)}`);
-  }
-  
-  const data = await response.json();
-  const content = data.choices[0].message.content;
-  
-  // Parse the JSON response
   try {
-    const parsedContent = JSON.parse(content);
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'llama3-70b-8192', // Use appropriate Groq model
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an AI assistant specialized in generating relevant interview questions and high-quality suggested answers for various job roles. Your responses should be specific, concise, and focused on real interview scenarios for the requested role. When generating DSA questions, include clear problem statements, expected inputs/outputs, and detailed algorithm explanations with code samples. Output must be in valid JSON format exactly as specified in the prompt.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 8192, // Increased for 12-15 comprehensive questions with detailed answers
+        response_format: { type: "json_object" } // Ensure JSON response
+      }),
+    });
     
-    // Validate and return the structured response
-    if (parsedContent.mode && parsedContent.role && parsedContent.questionType) {
-      return parsedContent as InterviewPrepResponse;
-    } else {
-      // Fallback to create a structured response
+    console.log('Groq API response status:', response.status);
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      console.error('Groq API error response:', errorData);
+      throw new Error(`Groq API error: ${response.status} - ${JSON.stringify(errorData)}`);
+    }
+    
+    const data = await response.json();
+    console.log('Groq API response received, parsing content...');
+    
+    const content = data.choices[0].message.content;
+    
+    // Parse the JSON response
+    try {
+      const parsedContent = JSON.parse(content);
+      
+      // Validate and return the structured response
+      if (parsedContent.mode && parsedContent.role && parsedContent.questionType) {
+        console.log('Valid response parsed successfully');
+        return parsedContent as InterviewPrepResponse;
+      } else {
+        console.log('Invalid response structure, using fallback');
+        // Fallback to create a structured response
+        return createFallbackResponse(content);
+      }
+    } catch (parseError) {
+      console.error('Failed to parse response:', parseError);
+      console.error('Raw content:', content);
+      // Fallback parsing if JSON parse fails
       return createFallbackResponse(content);
     }
-  } catch (error) {
-    console.error('Failed to parse response:', error);
-    // Fallback parsing if JSON parse fails
-    return createFallbackResponse(content);
+  } catch (fetchError) {
+    console.error('Network error calling Groq API:', fetchError);
+    if (fetchError instanceof Error) {
+      throw new Error(`Network error: ${fetchError.message}`);
+    }
+    throw new Error('Unknown network error occurred');
   }
 }
 
