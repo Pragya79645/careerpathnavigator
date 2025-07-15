@@ -123,10 +123,33 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if GROQ_API_KEY is available
+    console.log('🔑 API Key validation:', {
+      hasApiKey: !!process.env.GROQ_API_KEY,
+      keyLength: process.env.GROQ_API_KEY?.length || 0,
+      keyPrefix: process.env.GROQ_API_KEY?.substring(0, 10) || 'undefined',
+      allEnvKeys: Object.keys(process.env).filter(key => key.includes('GROQ')),
+      NODE_ENV: process.env.NODE_ENV
+    });
+    
     if (!process.env.GROQ_API_KEY) {
-      console.error('GROQ_API_KEY environment variable is not set');
+      console.error('❌ GROQ_API_KEY environment variable is not set');
+      console.error('Available environment variables:', Object.keys(process.env).sort());
+      console.error('Environment check:', {
+        NODE_ENV: process.env.NODE_ENV,
+        VERCEL: process.env.VERCEL,
+        NETLIFY: process.env.NETLIFY,
+        CI: process.env.CI,
+        deploymentPlatform: process.env.VERCEL ? 'Vercel' : process.env.NETLIFY ? 'Netlify' : 'Unknown'
+      });
+      
       return NextResponse.json(
-        { error: 'Server configuration error: API key not configured' },
+        { 
+          error: 'Server configuration error: API key not configured',
+          details: 'GROQ_API_KEY environment variable is missing',
+          availableEnvKeys: Object.keys(process.env).filter(key => key.includes('GROQ')),
+          platform: process.env.VERCEL ? 'Vercel' : process.env.NETLIFY ? 'Netlify' : 'Unknown',
+          timestamp: new Date().toISOString()
+        },
         { status: 500 }
       );
     }
@@ -243,26 +266,44 @@ export async function POST(req: NextRequest) {
 // Add a GET endpoint for health check
 export async function GET() {
   console.log('🔍 Health check endpoint called');
-  console.log('Environment details:', {
+  
+  const envDetails = {
     NODE_ENV: process.env.NODE_ENV,
     hasApiKey: !!process.env.GROQ_API_KEY,
     apiKeyLength: process.env.GROQ_API_KEY?.length || 0,
     timestamp: new Date().toISOString(),
     platform: process.platform,
     nodeVersion: process.version,
-    nextVersion: process.env.NEXT_VERSION
-  });
+    nextVersion: process.env.NEXT_VERSION,
+    deploymentPlatform: process.env.VERCEL ? 'Vercel' : process.env.NETLIFY ? 'Netlify' : 'Unknown',
+    VERCEL: !!process.env.VERCEL,
+    NETLIFY: !!process.env.NETLIFY,
+    CI: !!process.env.CI,
+    groqRelatedEnvKeys: Object.keys(process.env).filter(key => key.toLowerCase().includes('groq')),
+    totalEnvKeys: Object.keys(process.env).length
+  };
+  
+  console.log('Environment details:', envDetails);
   
   try {
     return NextResponse.json({ 
-      status: 'OK', 
+      status: process.env.GROQ_API_KEY ? 'OK' : 'MISSING_API_KEY',
       timestamp: new Date().toISOString(),
       hasApiKey: !!process.env.GROQ_API_KEY,
       nodeEnv: process.env.NODE_ENV || 'development',
       platform: process.platform,
       nodeVersion: process.version,
       apiKeyStatus: process.env.GROQ_API_KEY ? 'present' : 'missing',
-      message: 'API endpoint is accessible'
+      apiKeyLength: process.env.GROQ_API_KEY?.length || 0,
+      deploymentPlatform: process.env.VERCEL ? 'Vercel' : process.env.NETLIFY ? 'Netlify' : 'Unknown',
+      groqRelatedEnvKeys: Object.keys(process.env).filter(key => key.toLowerCase().includes('groq')),
+      message: process.env.GROQ_API_KEY ? 'API endpoint is accessible' : 'API key not configured',
+      troubleshooting: {
+        checkEnvVars: 'Verify GROQ_API_KEY is set in your deployment platform',
+        vercel: 'Check Vercel Dashboard > Settings > Environment Variables',
+        netlify: 'Check Netlify Dashboard > Site Settings > Environment Variables',
+        local: 'Check your .env.local file'
+      }
     });
   } catch (error) {
     console.error('❌ Health check failed:', error);
@@ -272,7 +313,8 @@ export async function GET() {
         timestamp: new Date().toISOString(),
         error: error instanceof Error ? error.message : 'Unknown error',
         hasApiKey: !!process.env.GROQ_API_KEY,
-        nodeEnv: process.env.NODE_ENV || 'development'
+        nodeEnv: process.env.NODE_ENV || 'development',
+        envDetails: envDetails
       },
       { status: 500 }
     );
