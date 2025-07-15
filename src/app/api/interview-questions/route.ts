@@ -44,12 +44,39 @@ interface InterviewPrepResponse {
 }
 
 export async function POST(req: NextRequest) {
+  console.log('🚀 POST /api/interview-questions endpoint called');
+  console.log('Request details:', {
+    method: req.method,
+    url: req.url,
+    headers: Object.fromEntries(req.headers.entries()),
+    timestamp: new Date().toISOString()
+  });
+  
   try {
     // Parse the incoming request
-    const body = await req.json() as RequestBody;
+    console.log('📥 Parsing request body...');
+    
+    let body: RequestBody;
+    try {
+      body = await req.json() as RequestBody;
+    } catch (parseError) {
+      console.error('❌ Failed to parse request body:', parseError);
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body' },
+        { status: 400 }
+      );
+    }
+    
     const { role, questionType, company, mode = 'interview' } = body;
     
     console.log('API Request received:', { role, questionType, company, mode });
+    console.log('Environment check:', {
+      NODE_ENV: process.env.NODE_ENV,
+      hasApiKey: !!process.env.GROQ_API_KEY,
+      apiKeyLength: process.env.GROQ_API_KEY?.length,
+      platform: process.platform,
+      nodeVersion: process.version
+    });
     
     if (!role) {
       console.error('Validation failed: Role is required');
@@ -104,38 +131,92 @@ export async function POST(req: NextRequest) {
     // Return the response
     return NextResponse.json(response);
   } catch (error) {
-    console.error('Error generating interview questions:', error);
+    console.error('💥 Error generating interview questions:', error);
     
-    // More detailed error logging
+    // More detailed error logging for debugging
     if (error instanceof Error) {
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
+      console.error('Error details:', {
+        message: error.message,
+        name: error.name,
+        stack: error.stack,
+        cause: error.cause
+      });
       
-      // Return more specific error messages
+      // Return more specific error messages based on error type
       if (error.message.includes('GROQ_API_KEY')) {
         return NextResponse.json(
-          { error: 'API configuration error. Please check server configuration.' },
+          { 
+            error: 'API configuration error. Please check server configuration.',
+            details: 'Missing or invalid API key',
+            timestamp: new Date().toISOString()
+          },
           { status: 500 }
         );
       }
       
       if (error.message.includes('Groq API error')) {
         return NextResponse.json(
-          { error: 'External API error. Please try again in a moment.' },
+          { 
+            error: 'External API error. Please try again in a moment.',
+            details: 'Groq API is temporarily unavailable',
+            timestamp: new Date().toISOString()
+          },
           { status: 503 }
         );
       }
       
       if (error.message.includes('Failed to parse response')) {
         return NextResponse.json(
-          { error: 'Response parsing error. Please try again.' },
+          { 
+            error: 'Response parsing error. Please try again.',
+            details: 'Invalid response format from external API',
+            timestamp: new Date().toISOString()
+          },
           { status: 502 }
         );
       }
+      
+      if (error.message.includes('Network error')) {
+        return NextResponse.json(
+          { 
+            error: 'Network connectivity error. Please try again.',
+            details: 'Could not connect to external API',
+            timestamp: new Date().toISOString()
+          },
+          { status: 503 }
+        );
+      }
+      
+      if (error.message.includes('timeout')) {
+        return NextResponse.json(
+          { 
+            error: 'Request timeout. Please try again.',
+            details: 'External API request timed out',
+            timestamp: new Date().toISOString()
+          },
+          { status: 504 }
+        );
+      }
+      
+      // Generic error with more details
+      return NextResponse.json(
+        { 
+          error: 'Failed to generate interview questions. Please try again.',
+          details: error.message,
+          timestamp: new Date().toISOString(),
+          errorType: error.name
+        },
+        { status: 500 }
+      );
     }
     
+    // Fallback for non-Error objects
     return NextResponse.json(
-      { error: 'Failed to generate interview questions. Please try again.' },
+      { 
+        error: 'An unexpected error occurred. Please try again.',
+        details: 'Unknown error type',
+        timestamp: new Date().toISOString()
+      },
       { status: 500 }
     );
   }
@@ -143,12 +224,41 @@ export async function POST(req: NextRequest) {
 
 // Add a GET endpoint for health check
 export async function GET() {
-  return NextResponse.json({ 
-    status: 'OK', 
-    timestamp: new Date().toISOString(),
+  console.log('🔍 Health check endpoint called');
+  console.log('Environment details:', {
+    NODE_ENV: process.env.NODE_ENV,
     hasApiKey: !!process.env.GROQ_API_KEY,
-    nodeEnv: process.env.NODE_ENV || 'development'
+    apiKeyLength: process.env.GROQ_API_KEY?.length || 0,
+    timestamp: new Date().toISOString(),
+    platform: process.platform,
+    nodeVersion: process.version,
+    nextVersion: process.env.NEXT_VERSION
   });
+  
+  try {
+    return NextResponse.json({ 
+      status: 'OK', 
+      timestamp: new Date().toISOString(),
+      hasApiKey: !!process.env.GROQ_API_KEY,
+      nodeEnv: process.env.NODE_ENV || 'development',
+      platform: process.platform,
+      nodeVersion: process.version,
+      apiKeyStatus: process.env.GROQ_API_KEY ? 'present' : 'missing',
+      message: 'API endpoint is accessible'
+    });
+  } catch (error) {
+    console.error('❌ Health check failed:', error);
+    return NextResponse.json(
+      { 
+        status: 'ERROR', 
+        timestamp: new Date().toISOString(),
+        error: error instanceof Error ? error.message : 'Unknown error',
+        hasApiKey: !!process.env.GROQ_API_KEY,
+        nodeEnv: process.env.NODE_ENV || 'development'
+      },
+      { status: 500 }
+    );
+  }
 }
 
 function constructPrompt(role: string, questionType: string, company?: string, displayMode: 'interview' | 'flashcard' = 'interview'): string {

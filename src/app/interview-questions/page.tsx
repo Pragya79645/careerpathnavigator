@@ -53,12 +53,55 @@ export default function InterviewQuestionsGenerator() {
   const [savedQuestions, setSavedQuestions] = useState<Set<number>>(new Set());
   const [activeAnswerIndex, setActiveAnswerIndex] = useState<number | null>(null);
 
+  // Test API connectivity
+  const testApiConnectivity = async () => {
+    console.log('🔍 Testing API connectivity...');
+    try {
+      // Try to get the base URL for absolute requests in production
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+      const apiUrl = `${baseUrl}/api/interview-questions`;
+      
+      console.log('🔗 Testing connection to:', apiUrl);
+      
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      console.log('🔍 Health check response:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        url: response.url
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ API is accessible:', data);
+        return true;
+      } else {
+        console.error('❌ API health check failed:', response.status, response.statusText);
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ API connectivity test failed:', error);
+      return false;
+    }
+  };
+
   // Reset display mode to 'interview' when question type changes away from 'technical'
   useEffect(() => {
     if (questionType !== 'technical') {
       setDisplayMode('interview');
     }
   }, [questionType]);
+
+  // Test API connectivity on component mount
+  useEffect(() => {
+    testApiConnectivity();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,7 +115,20 @@ export default function InterviewQuestionsGenerator() {
     setError(null);
     
     try {
-      const response = await fetch('/api/interview-questions', {
+      console.log('🚀 Starting request to API...');
+      console.log('Request data:', { role, questionType, company: company.trim() || undefined, mode: displayMode });
+      
+      // Add timeout to prevent hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
+      // Try to get the base URL for absolute requests in production
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+      const apiUrl = `${baseUrl}/api/interview-questions`;
+      
+      console.log('🔗 Making request to:', apiUrl);
+      
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -83,13 +139,55 @@ export default function InterviewQuestionsGenerator() {
           company: company.trim() || undefined,
           mode: displayMode
         }),
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      console.log('📡 Response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
       });
       
       if (!response.ok) {
-        throw new Error('Failed to fetch interview questions');
+        // Get the error details from the response
+        let errorMessage = 'Failed to fetch interview questions';
+        let errorDetails = '';
+        
+        try {
+          const errorData = await response.json();
+          console.error('❌ Error response data:', errorData);
+          errorMessage = errorData.error || errorMessage;
+          errorDetails = errorData.details || '';
+        } catch (parseError) {
+          console.error('❌ Could not parse error response:', parseError);
+          // Try to get text response
+          try {
+            const errorText = await response.text();
+            console.error('❌ Error response text:', errorText);
+            errorDetails = errorText.substring(0, 200); // Limit error text
+          } catch {
+            console.error('❌ Could not get error text');
+          }
+        }
+        
+        throw new Error(`${errorMessage}${errorDetails ? ` - ${errorDetails}` : ''} (Status: ${response.status})`);
       }
       
+      console.log('✅ Parsing successful response...');
       const data = await response.json() as InterviewPrepResponse;
+      
+      console.log('📊 Response data structure:', {
+        mode: data.mode,
+        displayMode: data.displayMode,
+        questionCount: data.questions?.length || 0,
+        hasResources: !!data.resources?.length,
+        company: data.company,
+        role: data.role
+      });
+      
       setPrepResponse(data);
       setQuestions(data.questions.map((q: any, index: number) => ({
         id: index,
@@ -101,8 +199,29 @@ export default function InterviewQuestionsGenerator() {
       // Reset saved questions when generating new ones
       setSavedQuestions(new Set());
       setActiveAnswerIndex(null);
+      
+      console.log('🎉 Request completed successfully!');
+      
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
+      console.error('💥 Request failed:', err);
+      
+      let errorMessage = 'An unexpected error occurred';
+      
+      if (err instanceof Error) {
+        if (err.name === 'AbortError') {
+          errorMessage = 'Request timed out. Please try again.';
+        } else if (err.message.includes('Failed to fetch')) {
+          errorMessage = 'Network error: Could not connect to the server. Please check your connection and try again.';
+        } else if (err.message.includes('NetworkError')) {
+          errorMessage = 'Network error: Please check your internet connection and try again.';
+        } else if (err.message.includes('timeout')) {
+          errorMessage = 'Request timed out. The server may be busy. Please try again.';
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -355,7 +474,15 @@ export default function InterviewQuestionsGenerator() {
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                 </svg>
-                {error}
+                <div>
+                  <div>{error}</div>
+                  <button
+                    onClick={testApiConnectivity}
+                    className="mt-2 text-sm underline hover:no-underline font-medium"
+                  >
+                    Test API Connection
+                  </button>
+                </div>
               </motion.div>
             )}
 
@@ -650,8 +777,8 @@ export default function InterviewQuestionsGenerator() {
                                 >
                                   <span>Visit</span>
                                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-                                  </svg>
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
                                 </a>
                               )}
                             </div>
