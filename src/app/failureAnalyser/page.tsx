@@ -24,6 +24,7 @@ import {
 } from "lucide-react"
 
 import { extractTextFromPDF } from "../../../utils/parsePDFc"
+import { usePDFParser } from "@/hooks/usePDFParser"
 import type React from "react"
 
 interface AnalysisResult {
@@ -53,6 +54,8 @@ interface AnalysisResult {
 }
 
 export default function CareerAssistant() {
+  const { extractTextFromPDF: extractTextSafely, isReady: pdfReady } = usePDFParser();
+  
   const [formData, setFormData] = useState({
     resume_text: "",
     interview_feedback: "",
@@ -89,6 +92,9 @@ export default function CareerAssistant() {
   }
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Ensure this only runs on the client side
+    if (typeof window === 'undefined') return;
+    
     const file = e.target.files?.[0]
     if (file) {
       setResumeFile(file)
@@ -97,8 +103,12 @@ export default function CareerAssistant() {
       try {
         if (file.type === "application/pdf") {
           setIsLoading(true)
-          const extractedText = await extractTextFromPDF(file)
-          setFormData((prev) => ({ ...prev, resume_text: extractedText }))
+          if (pdfReady) {
+            const extractedText = await extractTextSafely(file)
+            setFormData((prev) => ({ ...prev, resume_text: extractedText }))
+          } else {
+            throw new Error("PDF parser is not ready")
+          }
           setIsLoading(false)
         } else if (file.type === "text/plain") {
           const text = await file.text()
@@ -132,6 +142,9 @@ export default function CareerAssistant() {
     e.preventDefault()
     setIsDragOver(false)
 
+    // Ensure this only runs on the client side
+    if (typeof window === 'undefined') return;
+
     const files = e.dataTransfer.files
     if (files.length > 0) {
       const file = files[0]
@@ -142,8 +155,12 @@ export default function CareerAssistant() {
       try {
         if (file.type === "application/pdf") {
           setIsLoading(true)
-          const extractedText = await extractTextFromPDF(file)
-          setFormData((prev) => ({ ...prev, resume_text: extractedText }))
+          if (pdfReady) {
+            const extractedText = await extractTextSafely(file)
+            setFormData((prev) => ({ ...prev, resume_text: extractedText }))
+          } else {
+            throw new Error("PDF parser is not ready")
+          }
           setIsLoading(false)
         } else if (file.type === "text/plain") {
           const text = await file.text()
@@ -379,7 +396,7 @@ export default function CareerAssistant() {
   }
 
   const downloadOptimizedResume = () => {
-    if (!analysis?.optimized_resume) return
+    if (!analysis?.optimized_resume || typeof window === 'undefined') return
 
     const element = document.createElement("a")
     const file = new Blob([analysis.optimized_resume], { type: "text/plain" })
@@ -391,6 +408,7 @@ export default function CareerAssistant() {
   }
 
   const printResume = () => {
+    if (typeof window === 'undefined') return
     window.print()
   }
 
@@ -709,9 +727,18 @@ export default function CareerAssistant() {
                             accept=".pdf,.doc,.docx,.txt"
                             onChange={handleFileUpload}
                             className="hidden"
+                            disabled={!pdfReady}
                           />
                           <div className="space-y-4">
-                            {resumeFile ? (
+                            {!pdfReady ? (
+                              <>
+                                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                                <div>
+                                  <p className="text-lg font-medium text-gray-700">Loading PDF processor...</p>
+                                  <p className="text-sm text-gray-500">Please wait while we initialize the PDF parser</p>
+                                </div>
+                              </>
+                            ) : resumeFile ? (
                               <>
                                 <CheckCircle className="w-12 h-12 text-green-500 mx-auto" />
                                 <div>
@@ -734,7 +761,8 @@ export default function CareerAssistant() {
                           <button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
-                            className="mt-4 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium"
+                            disabled={!pdfReady}
+                            className="mt-4 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             Choose File
                           </button>

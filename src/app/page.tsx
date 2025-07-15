@@ -1,6 +1,6 @@
 "use client"
 
-import { ThreeDCardDemo } from "@/components/3d-card"
+import { ThreeDCardClientOnly } from "@/components/3d-card-client"
 import { AnimatedText } from "@/components/animated-text"
 import { Feature108Demo } from "@/components/demo"
 import ButtonWrapper from "@/components/getStarted"
@@ -111,7 +111,7 @@ export default function Home() {
               className="relative h-[500px] hidden lg:block"
             >
               {/* 3D illustration or mockup would go here */}
-              <div><ThreeDCardDemo /></div>
+              <div><ThreeDCardClientOnly /></div>
             </motion.div>
           </div>
         </div>

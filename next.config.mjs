@@ -30,6 +30,23 @@ const nextConfig = {
       }
     }
     
+    // Add polyfills for server-side rendering
+    if (isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        canvas: false,
+        'fs': false,
+        'path': false,
+        'stream': false,
+      }
+    }
+    
+    // Handle WebGL and Canvas libraries
+    config.module.rules.push({
+      test: /\.(glsl|vs|fs|vert|frag)$/,
+      use: ['raw-loader'],
+    })
+    
     return config
   },
 }

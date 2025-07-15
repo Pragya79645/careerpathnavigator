@@ -4,6 +4,13 @@ import * as pdfjsLib from "pdfjs-dist"
 if (typeof window !== "undefined") {
   // Primary: Use the local worker file from public directory
   pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'
+} else {
+  // Server-side: Use a CDN worker or disable worker
+  try {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`
+  } catch (error) {
+    console.warn("PDF.js worker setup failed on server:", error)
+  }
 }
 
 // Helper function to handle worker failures
