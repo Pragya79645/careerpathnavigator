@@ -56,12 +56,44 @@ export default function InterviewQuestionsGenerator() {
   // Test API connectivity
   const testApiConnectivity = async () => {
     console.log('🔍 Testing API connectivity...');
+    
+    // Test the simple test endpoint first
     try {
-      // Try to get the base URL for absolute requests in production
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+      const testUrl = `${baseUrl}/api/test`;
+      
+      console.log('🔗 Testing simple endpoint:', testUrl);
+      
+      const testResponse = await fetch(testUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      console.log('🔍 Test endpoint response:', {
+        status: testResponse.status,
+        statusText: testResponse.statusText,
+        ok: testResponse.ok,
+        url: testResponse.url
+      });
+      
+      if (testResponse.ok) {
+        const testData = await testResponse.json();
+        console.log('✅ Test endpoint accessible:', testData);
+      } else {
+        console.error('❌ Test endpoint failed:', testResponse.status, testResponse.statusText);
+      }
+    } catch (error) {
+      console.error('❌ Test endpoint error:', error);
+    }
+    
+    // Test the main API endpoint
+    try {
       const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
       const apiUrl = `${baseUrl}/api/interview-questions`;
       
-      console.log('🔗 Testing connection to:', apiUrl);
+      console.log('🔗 Testing main API endpoint:', apiUrl);
       
       const response = await fetch(apiUrl, {
         method: 'GET',
@@ -114,67 +146,19 @@ export default function InterviewQuestionsGenerator() {
     setLoading(true);
     setError(null);
     
+    const requestData = { 
+      role, 
+      questionType,
+      company: company.trim() || undefined,
+      mode: displayMode
+    };
+    
     try {
       console.log('🚀 Starting request to API...');
-      console.log('Request data:', { role, questionType, company: company.trim() || undefined, mode: displayMode });
+      console.log('Request data:', requestData);
       
-      // Add timeout to prevent hanging requests
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-      
-      // Try to get the base URL for absolute requests in production
-      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-      const apiUrl = `${baseUrl}/api/interview-questions`;
-      
-      console.log('🔗 Making request to:', apiUrl);
-      
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          role, 
-          questionType,
-          company: company.trim() || undefined,
-          mode: displayMode
-        }),
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      
-      console.log('📡 Response received:', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        headers: Object.fromEntries(response.headers.entries())
-      });
-      
-      if (!response.ok) {
-        // Get the error details from the response
-        let errorMessage = 'Failed to fetch interview questions';
-        let errorDetails = '';
-        
-        try {
-          const errorData = await response.json();
-          console.error('❌ Error response data:', errorData);
-          errorMessage = errorData.error || errorMessage;
-          errorDetails = errorData.details || '';
-        } catch (parseError) {
-          console.error('❌ Could not parse error response:', parseError);
-          // Try to get text response
-          try {
-            const errorText = await response.text();
-            console.error('❌ Error response text:', errorText);
-            errorDetails = errorText.substring(0, 200); // Limit error text
-          } catch {
-            console.error('❌ Could not get error text');
-          }
-        }
-        
-        throw new Error(`${errorMessage}${errorDetails ? ` - ${errorDetails}` : ''} (Status: ${response.status})`);
-      }
+      // Try multiple request strategies
+      const response = await makeRequestWithFallbacks(requestData);
       
       console.log('✅ Parsing successful response...');
       const data = await response.json() as InterviewPrepResponse;
@@ -225,6 +209,94 @@ export default function InterviewQuestionsGenerator() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Function to make request with multiple fallback strategies
+  const makeRequestWithFallbacks = async (requestData: any): Promise<Response> => {
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    const apiPaths = [
+      '/api/interview-questions',
+      '/api/interview-questions/',
+    ];
+    
+    console.log('🔄 Trying multiple request strategies...');
+    
+    for (let i = 0; i < apiPaths.length; i++) {
+      const apiPath = apiPaths[i];
+      const apiUrl = `${baseUrl}${apiPath}`;
+      
+      try {
+        console.log(`🔗 Attempt ${i + 1}: Making request to:`, apiUrl);
+        
+        // Add timeout to prevent hanging requests
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 second timeout
+        
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestData),
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        console.log(`📡 Attempt ${i + 1} response:`, {
+          status: response.status,
+          statusText: response.statusText,
+          ok: response.ok,
+          url: response.url,
+          headers: Object.fromEntries(response.headers.entries())
+        });
+        
+        if (!response.ok) {
+          // Get detailed error information
+          let errorDetails = '';
+          try {
+            const errorData = await response.json();
+            console.error(`❌ Attempt ${i + 1} error data:`, errorData);
+            errorDetails = errorData.error || errorData.message || 'Unknown error';
+          } catch (parseError) {
+            console.error(`❌ Attempt ${i + 1} could not parse error:`, parseError);
+            try {
+              const errorText = await response.text();
+              console.error(`❌ Attempt ${i + 1} error text:`, errorText);
+              errorDetails = errorText.substring(0, 200);
+            } catch {
+              console.error(`❌ Attempt ${i + 1} could not get error text`);
+            }
+          }
+          
+          if (i === apiPaths.length - 1) {
+            // Last attempt failed
+            throw new Error(`${errorDetails || 'Failed to fetch interview questions'} (Status: ${response.status})`);
+          } else {
+            // Try next path
+            console.log(`⚠️ Attempt ${i + 1} failed, trying next path...`);
+            continue;
+          }
+        }
+        
+        console.log(`✅ Attempt ${i + 1} successful!`);
+        return response;
+        
+      } catch (error) {
+        console.error(`💥 Attempt ${i + 1} failed:`, error);
+        
+        if (i === apiPaths.length - 1) {
+          // Last attempt failed
+          throw error;
+        } else {
+          // Try next path
+          console.log(`⚠️ Attempt ${i + 1} failed, trying next path...`);
+          continue;
+        }
+      }
+    }
+    
+    throw new Error('All request attempts failed');
   };
 
   const toggleSaveQuestion = (index: number) => {

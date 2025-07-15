@@ -49,7 +49,19 @@ export async function POST(req: NextRequest) {
     method: req.method,
     url: req.url,
     headers: Object.fromEntries(req.headers.entries()),
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    userAgent: req.headers.get('user-agent')
+  });
+  
+  // Additional deployment debugging
+  console.log('Deployment environment check:', {
+    NODE_ENV: process.env.NODE_ENV,
+    hasApiKey: !!process.env.GROQ_API_KEY,
+    apiKeyPrefix: process.env.GROQ_API_KEY?.substring(0, 8) + '...',
+    platform: process.platform,
+    nodeVersion: process.version,
+    memoryUsage: process.memoryUsage(),
+    uptime: process.uptime()
   });
   
   try {
@@ -58,11 +70,17 @@ export async function POST(req: NextRequest) {
     
     let body: RequestBody;
     try {
-      body = await req.json() as RequestBody;
+      const rawBody = await req.text();
+      console.log('Raw request body:', rawBody);
+      body = JSON.parse(rawBody) as RequestBody;
     } catch (parseError) {
       console.error('❌ Failed to parse request body:', parseError);
       return NextResponse.json(
-        { error: 'Invalid JSON in request body' },
+        { 
+          error: 'Invalid JSON in request body',
+          details: parseError instanceof Error ? parseError.message : 'Unknown parsing error',
+          timestamp: new Date().toISOString()
+        },
         { status: 400 }
       );
     }
