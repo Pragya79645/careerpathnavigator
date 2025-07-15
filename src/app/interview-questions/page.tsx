@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Send, Loader2, Sparkles, MoveRight, Check, Bookmark, X, MessageSquare, Code } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SparklesText } from '@/components/sparkle-text';
@@ -52,6 +52,13 @@ export default function InterviewQuestionsGenerator() {
   const [error, setError] = useState<string | null>(null);
   const [savedQuestions, setSavedQuestions] = useState<Set<number>>(new Set());
   const [activeAnswerIndex, setActiveAnswerIndex] = useState<number | null>(null);
+
+  // Reset display mode to 'interview' when question type changes away from 'technical'
+  useEffect(() => {
+    if (questionType !== 'technical') {
+      setDisplayMode('interview');
+    }
+  }, [questionType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -278,43 +285,46 @@ export default function InterviewQuestionsGenerator() {
                   </div>
                 </div>
                 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Display Mode
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {(['interview', 'flashcard'] as const).map((mode) => (
-                      <button
-                        key={mode}
-                        type="button"
-                        onClick={() => setDisplayMode(mode)}
-                        className={`py-2 sm:py-2.5 px-2 sm:px-3 rounded-lg text-xs sm:text-sm font-medium transition-all flex flex-col items-center justify-center gap-1 ${
-                          displayMode === mode 
-                          ? 'bg-gradient-to-r from-teal-500 to-purple-400 text-white shadow-md' 
-                          : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
-                        }`}
-                      >
-                        {mode === 'interview' && (
-                          <div className="h-4 w-4 flex items-center justify-center">
-                            <MessageSquare size={16} className={displayMode === mode ? 'text-white' : 'text-gray-500'} />
-                          </div>
-                        )}
-                        {mode === 'flashcard' && (
-                          <div className="h-4 w-4 flex items-center justify-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
-                              <path d="M14 2v6h6"/>
-                              <path d="M16 13H8"/>
-                              <path d="M16 17H8"/>
-                              <path d="M10 9H8"/>
-                            </svg>
-                          </div>
-                        )}
-                        {mode === 'interview' ? 'Interview' : 'Flashcards'}
-                      </button>
-                    ))}
+                {/* Display Mode Selector - Only show for technical questions */}
+                {questionType === 'technical' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Display Mode
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(['interview', 'flashcard'] as const).map((mode) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          onClick={() => setDisplayMode(mode)}
+                          className={`py-2 sm:py-2.5 px-2 sm:px-3 rounded-lg text-xs sm:text-sm font-medium transition-all flex flex-col items-center justify-center gap-1 ${
+                            displayMode === mode 
+                            ? 'bg-gradient-to-r from-teal-500 to-purple-400 text-white shadow-md' 
+                            : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          {mode === 'interview' && (
+                            <div className="h-4 w-4 flex items-center justify-center">
+                              <MessageSquare size={16} className={displayMode === mode ? 'text-white' : 'text-gray-500'} />
+                            </div>
+                          )}
+                          {mode === 'flashcard' && (
+                            <div className="h-4 w-4 flex items-center justify-center">
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
+                                <path d="M14 2v6h6"/>
+                                <path d="M16 13H8"/>
+                                <path d="M16 17H8"/>
+                                <path d="M10 9H8"/>
+                              </svg>
+                            </div>
+                          )}
+                          {mode === 'interview' ? 'Interview' : 'Flashcards'}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
               
               <button

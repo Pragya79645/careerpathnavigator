@@ -56,11 +56,30 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Validate questionType
+    if (!['technical', 'behavioral', 'dsa', 'all'].includes(questionType)) {
+      return NextResponse.json(
+        { error: 'Invalid question type' },
+        { status: 400 }
+      );
+    }
+
+    // Validate displayMode
+    if (mode !== 'interview' && mode !== 'flashcard') {
+      return NextResponse.json(
+        { error: 'Invalid display mode' },
+        { status: 400 }
+      );
+    }
+
     // Construct the prompt based on the role, question type, company, and mode
-    const prompt = constructPrompt(role, questionType, company, mode);
+    const prompt = constructPrompt(role, questionType, company?.trim(), mode);
     
     // Call the Groq API
     const response = await fetchInterviewPrepFromGroq(prompt);
+    
+    // Ensure the response includes the correct displayMode
+    response.displayMode = mode;
     
     // Return the response
     return NextResponse.json(response);
@@ -74,7 +93,7 @@ export async function POST(req: NextRequest) {
 }
 
 function constructPrompt(role: string, questionType: string, company?: string, displayMode: 'interview' | 'flashcard' = 'interview'): string {
-  const mode = company ? 'company-specific' : 'general';
+  const mode = company && company.length > 0 ? 'company-specific' : 'general';
   
   let promptBase = `You are a smart interview preparation assistant.
 
@@ -91,6 +110,28 @@ FLASHCARD REQUIREMENTS:
 - Include memory aids, mnemonics, or key phrases where helpful
 
 ` : ''}
+
+${mode === 'company-specific' ? `
+🏢 **COMPANY-SPECIFIC MODE ACTIVATED**
+You are generating questions that have been ACTUALLY ASKED at ${company}. 
+
+CRITICAL REQUIREMENTS:
+- Only include questions that candidates have reported being asked at ${company}
+- Reference specific sources like ${company} LeetCode company tag, Glassdoor interviews, etc.
+- Focus on ${company}'s unique interview style and commonly asked topics
+- Include ${company}-specific technical stack, culture, and requirements
+
+` : `
+🌍 **GENERAL MODE ACTIVATED**
+You are generating the most commonly asked ${questionType} questions across top tech companies.
+
+CRITICAL REQUIREMENTS:
+- Focus on universally important questions asked across multiple companies
+- Include fundamental concepts that appear in most technical interviews
+- Cover core competencies expected for ${role} positions industry-wide
+- Draw from most popular interview preparation resources
+
+`}
 
 IMPORTANT: When asked to return technical or behavioral interview questions for a specific company (e.g., Amazon, Microsoft, Google), only include *real, verified, and frequently asked* questions.
 
@@ -219,18 +260,85 @@ Generate interview preparation content for a ${role} position${company ? ` at ${
     - Company-specific interview experiences on platforms like Glassdoor
     - YouTube channels or videos specifically about ${company} interviews
     
+    COMPANY-SPECIFIC FOCUS FOR ${company}:
+    ${company?.toLowerCase() === 'amazon' ? `
+    Amazon Interview Focus:
+    - Leadership Principles integration in technical questions
+    - AWS services and cloud architecture
+    - Distributed systems and scalability (Prime, Alexa, AWS)
+    - Customer obsession in technical decisions
+    - Operational excellence and system reliability
+    - Cost optimization and performance
+    - Example systems: Prime Video, Alexa, AWS Lambda, DynamoDB
+    ` : company?.toLowerCase() === 'google' ? `
+    Google Interview Focus:
+    - Algorithmic thinking and problem-solving
+    - Large-scale system design (Search, Maps, YouTube)
+    - Machine learning and data processing
+    - Clean code and software engineering practices
+    - Innovation and technical leadership
+    - Global scale and performance optimization
+    - Example systems: Google Search, Gmail, Google Maps, YouTube
+    ` : company?.toLowerCase() === 'microsoft' ? `
+    Microsoft Interview Focus:
+    - Software engineering fundamentals
+    - Azure cloud services and enterprise solutions
+    - Collaboration and teamwork in technical contexts
+    - .NET ecosystem and development practices
+    - Enterprise software patterns and architecture
+    - Accessibility and inclusive design
+    - Example systems: Office 365, Teams, Azure, Visual Studio
+    ` : company?.toLowerCase() === 'meta' || company?.toLowerCase() === 'facebook' ? `
+    Meta/Facebook Interview Focus:
+    - Social media scale and real-time systems
+    - React and frontend engineering
+    - Data processing and machine learning
+    - Privacy and security considerations
+    - Mobile-first and cross-platform development
+    - Community and user experience focus
+    - Example systems: Facebook, Instagram, WhatsApp, Messenger
+    ` : `
+    ${company} Interview Focus:
+    - Research ${company}'s main products and technical challenges
+    - Understand ${company}'s technology stack and engineering culture
+    - Focus on ${company}'s specific interview patterns and frequently asked topics
+    - Include ${company}'s unique technical requirements and problem domains
+    - Consider ${company}'s scale, user base, and technical constraints
+    `}
+    
     Examples of the types of REAL questions to include:
     - For Amazon: "Design a URL shortening service", "Two Sum problem variations", "Leadership Principle questions"
     - For Google: "Design Google Search", "System design questions", "Algorithm optimization problems"
     - For Microsoft: "Design a chat application", "Behavioral questions about teamwork", "Technical design questions"
     - For Meta: "Design Facebook News Feed", "React/Frontend questions", "Culture fit questions"`;
   } else {
-    promptBase += ` Focus on general industry standards and common practices across top tech companies. Include popular resources like:
-    - Cracking the Coding Interview
+    promptBase += ` Focus on general industry standards and common practices across top tech companies. 
+    
+    GENERAL INTERVIEW FOCUS:
+    - Universal technical concepts that apply across all companies
+    - Industry-standard system design patterns
+    - Common algorithmic and data structure problems
+    - Fundamental software engineering principles
+    - Cross-platform and technology-agnostic solutions
+    - Best practices that are widely adopted
+    
+    Include popular resources like:
+    - Cracking the Coding Interview (universal preparation)
     - System Design Primer GitHub repository
-    - Popular LeetCode question lists
+    - Popular LeetCode question lists (Top 100, Top Interview Questions)
     - Well-known YouTube channels for interview preparation
-    - Established online courses and platforms`;
+    - Established online courses and platforms (Coursera, edX, Udemy)
+    - Industry-standard books and documentation
+    
+    Focus on concepts that are valuable regardless of the specific company:
+    - Core data structures and algorithms
+    - System design fundamentals
+    - Database design principles
+    - API design and integration
+    - Security best practices
+    - Performance optimization
+    - Software architecture patterns
+    - Code quality and maintainability`;
   }
   
   switch (questionType) {
@@ -240,6 +348,67 @@ Generate interview preparation content for a ${role} position${company ? ` at ${
 CRITICAL: Focus ONLY on technical questions. DO NOT include any behavioral or soft skills questions.
 
 **MANDATORY**: Provide EXACTLY 12-15 technical questions (minimum 12, target 15) for comprehensive preparation.
+
+${mode === 'company-specific' ? `
+🏢 **COMPANY-SPECIFIC TECHNICAL QUESTIONS FOR ${company}**
+
+Generate technical questions that have been ACTUALLY ASKED at ${company} based on:
+- ${company} LeetCode company tag questions
+- ${company} Glassdoor technical interview experiences
+- ${company} GeeksforGeeks interview experiences
+- ${company} CareerCup technical rounds
+- ${company} system design and architecture questions
+
+Focus on ${company}'s specific technical stack and interview style:
+${company?.toLowerCase() === 'amazon' ? `
+- Amazon's focus on system design and scalability
+- AWS services and cloud architecture
+- Leadership principles applied to technical decisions
+- Distributed systems and microservices
+- Performance optimization and cost efficiency
+` : company?.toLowerCase() === 'google' ? `
+- Google's emphasis on algorithms and data structures
+- Large-scale system design (Search, Maps, YouTube)
+- Machine learning and AI applications
+- Performance optimization and scalability
+- Clean code and engineering practices
+` : company?.toLowerCase() === 'microsoft' ? `
+- Microsoft's focus on software engineering principles
+- Azure cloud services and architecture
+- .NET technologies and development practices
+- Team collaboration and technical leadership
+- Enterprise software design patterns
+` : company?.toLowerCase() === 'meta' || company?.toLowerCase() === 'facebook' ? `
+- Meta's focus on social media scale systems
+- React and frontend technologies
+- Real-time systems and data processing
+- Privacy and security considerations
+- Mobile and web application architecture
+` : `
+- ${company}'s specific technical stack and requirements
+- Industry-specific technical challenges
+- Company's engineering culture and practices
+- Technical decision-making processes
+- System architecture and design patterns
+`}
+
+` : `
+🌍 **GENERAL TECHNICAL QUESTIONS**
+
+Generate the most commonly asked technical questions across top tech companies (Google, Amazon, Microsoft, Meta, Apple, Netflix, etc.):
+
+Focus on universally important technical concepts:
+- Core system design principles (scalability, reliability, performance)
+- Common architectural patterns (microservices, distributed systems)
+- Database design and optimization
+- API design and integration
+- Security best practices
+- Cloud computing fundamentals
+- Performance optimization techniques
+- Code quality and engineering practices
+
+These should be questions that appear frequently across multiple companies and are fundamental to ${role} interviews.
+`}
 
 ${displayMode === 'flashcard' ? `
 🎯 **FLASHCARD MODE - TECHNICAL QUESTIONS**
@@ -397,87 +566,181 @@ YouTube Channels:
 
 EXAMPLES OF VERIFIED COMPANY-SPECIFIC QUESTIONS:
 
-${displayMode === 'flashcard' ? `
-🎯 **FLASHCARD EXAMPLES FOR TECHNICAL QUESTIONS**
+${mode === 'company-specific' ? `
+🏢 **COMPANY-SPECIFIC EXAMPLES FOR ${company}**
 
+${displayMode === 'flashcard' ? `
+🎯 **FLASHCARD EXAMPLES FOR ${company} - TECHNICAL QUESTIONS**
+
+${company?.toLowerCase() === 'amazon' ? `
 Amazon - TECHNICAL FLASHCARDS:
-- "What is the CAP theorem?" (Quick concept check)
+- "What is the CAP theorem?" (Distributed systems concept)
 - "Explain microservices vs monolithic architecture" (Architecture comparison)
 - "How does consistent hashing work?" (System design concept)
-- "What are the SOLID principles?" (Design principles)
-- "Explain database indexing" (Performance concept)
-
-Google - TECHNICAL FLASHCARDS:
-- "What is MapReduce?" (Distributed computing)
-- "Explain REST vs GraphQL" (API design)
-- "How does load balancing work?" (Scalability concept)
+- "What are AWS Lambda cold starts?" (AWS-specific concept)
+- "Explain database indexing strategies" (Performance concept)
+- "How does load balancing work in AWS?" (AWS-specific scalability)
 - "What is eventual consistency?" (Distributed systems)
-- "Explain caching strategies" (Performance optimization)
-
+- "Explain the difference between SQL and NoSQL" (Database concepts)
+- "How does caching improve performance?" (Performance optimization)
+- "What are the SOLID principles?" (Design principles)
+` : company?.toLowerCase() === 'google' ? `
+Google - TECHNICAL FLASHCARDS:
+- "What is MapReduce?" (Google-specific distributed computing)
+- "Explain REST vs GraphQL" (API design)
+- "How does Google Search indexing work?" (Search algorithms)
+- "What is BigTable?" (Google-specific database)
+- "Explain machine learning model training" (ML concepts)
+- "How does load balancing work?" (Scalability concept)
+- "What is TensorFlow?" (Google ML framework)
+- "Explain pub/sub messaging patterns" (Distributed systems)
+- "How does Google Cloud Storage work?" (Cloud storage)
+- "What are design patterns?" (Software engineering)
+` : company?.toLowerCase() === 'microsoft' ? `
 Microsoft - TECHNICAL FLASHCARDS:
 - "What is dependency injection?" (Design pattern)
 - "Explain async/await vs promises" (Concurrency concept)
-- "How does garbage collection work?" (Memory management)
+- "How does Azure Functions work?" (Serverless computing)
 - "What is the Observer pattern?" (Design pattern)
+- "Explain .NET Core architecture" (Microsoft-specific framework)
+- "How does SignalR work?" (Real-time communication)
+- "What is Entity Framework?" (ORM concept)
 - "Explain database normalization" (Database design)
+- "How does Azure Active Directory work?" (Authentication)
+- "What are microservices?" (Architecture pattern)
+` : company?.toLowerCase() === 'meta' || company?.toLowerCase() === 'facebook' ? `
+Meta/Facebook - TECHNICAL FLASHCARDS:
+- "How does React Virtual DOM work?" (Frontend concept)
+- "Explain state management in React" (Frontend architecture)
+- "What is GraphQL?" (API design)
+- "How does Facebook's News Feed algorithm work?" (Algorithm design)
+- "Explain React hooks" (Frontend development)
+- "What is server-side rendering?" (Performance optimization)
+- "How does real-time messaging work?" (Real-time systems)
+- "Explain database sharding" (Database scalability)
+- "What is Redux?" (State management)
+- "How does content delivery networks work?" (Performance)
+` : `
+${company} - TECHNICAL FLASHCARDS:
+- "What are the core technical concepts for ${company}?" (Company-specific)
+- "How does ${company}'s main product work?" (Product understanding)
+- "What technologies does ${company} use?" (Tech stack)
+- "Explain ${company}'s architecture approach" (System design)
+- "What are ${company}'s engineering practices?" (Development process)
+`}
 
-` : ''}
+` : `
+EXAMPLES FOR ${company} - INTERVIEW QUESTIONS:
 
+${company?.toLowerCase() === 'amazon' ? `
 Amazon - TECHNICAL (frequently asked according to Glassdoor/LeetCode):
 - "Design Amazon's product recommendation system" (System Design)
-- "Two Sum and variations" (DSA)
-- "Design a URL shortening service" (System Design)
 - "Implement LRU Cache" (DSA/System Design)
+- "Design a URL shortening service" (System Design)
 - "Design Amazon's inventory management system" (System Design)
-
-Amazon - BEHAVIORAL (Leadership Principles focused):
-- "Tell me about a time you disagreed with your manager"
-- "Describe a situation where you had to work with a difficult team member"
-- "Give an example of when you took ownership of a problem"
-- "Tell me about a time you failed and what you learned"
-- "Describe a time when you had to learn something new quickly"
-
+- "Explain AWS services and their use cases" (Cloud architecture)
+- "Design a distributed cache system" (System Design)
+- "Implement a load balancer" (System Design)
+- "Design Amazon Prime Video streaming" (System Design)
+- "Explain microservices architecture" (Architecture)
+- "Design a chat application" (System Design)
+` : company?.toLowerCase() === 'google' ? `
 Google - TECHNICAL (frequently asked according to Glassdoor/LeetCode):
 - "Design Google Search autocomplete" (System Design)
-- "Maximum subarray problem" (DSA)
-- "System design: Design a web crawler" (System Design)
-- "Find median in a stream of integers" (DSA)
-- "Design a distributed cache system" (System Design)
-
-Google - BEHAVIORAL:
-- "Tell me about a time you disagreed with a decision"
-- "Describe a challenging project you worked on"
-- "How do you handle working with ambiguous requirements?"
-- "Tell me about a time you had to influence someone without authority"
-- "Describe a situation where you had to make a quick decision"
-
+- "Design Google Maps" (System Design)
+- "Implement Google's PageRank algorithm" (Algorithm Design)
+- "Design a web crawler" (System Design)
+- "Design YouTube video streaming" (System Design)
+- "Implement Google Drive file system" (System Design)
+- "Design Gmail backend" (System Design)
+- "Explain Google's Bigtable" (Database Systems)
+- "Design Google Photos" (System Design)
+- "Implement Google Calendar" (System Design)
+` : company?.toLowerCase() === 'microsoft' ? `
 Microsoft - TECHNICAL (frequently asked according to Glassdoor/LeetCode):
-- "Design a chat application like Teams" (System Design)
-- "Reverse a linked list" (DSA)
-- "System design: Design a parking lot system" (System Design)
-- "Merge k sorted lists" (DSA)
-- "Design a file storage system" (System Design)
-
-Microsoft - BEHAVIORAL:
-- "Describe a challenging project you worked on"
-- "Tell me about a time you had to work under pressure"
-- "How do you handle conflicting priorities?"
-- "Describe a time when you had to learn a new technology"
-- "Tell me about a time you mentored someone"
-
+- "Design Microsoft Teams" (System Design)
+- "Design Outlook email system" (System Design)
+- "Implement Azure blob storage" (Cloud Systems)
+- "Design a parking lot system" (System Design)
+- "Design Microsoft Office collaboration" (System Design)
+- "Implement a distributed file system" (System Design)
+- "Design Skype video calling" (System Design)
+- "Explain .NET architecture" (Framework Design)
+- "Design a code repository system" (System Design)
+- "Implement a notification system" (System Design)
+` : company?.toLowerCase() === 'meta' || company?.toLowerCase() === 'facebook' ? `
 Meta/Facebook - TECHNICAL (frequently asked according to Glassdoor/LeetCode):
 - "Design Facebook News Feed" (System Design)
-- "Valid Parentheses problem" (DSA)
-- "System design: Design Instagram" (System Design)
-- "Binary tree traversal variations" (DSA)
-- "Design a messaging system" (System Design)
+- "Design Instagram" (System Design)
+- "Design WhatsApp messaging" (System Design)
+- "Implement Facebook's friend recommendation" (Algorithm Design)
+- "Design Facebook Live streaming" (System Design)
+- "Design Facebook Messenger" (System Design)
+- "Implement Facebook's photo storage" (System Design)
+- "Design Facebook's notification system" (System Design)
+- "Explain React architecture" (Frontend Framework)
+- "Design Facebook's comment system" (System Design)
+` : `
+${company} - TECHNICAL (company-specific questions):
+- "Design ${company}'s core product architecture" (System Design)
+- "Explain ${company}'s technical challenges" (Technical Knowledge)
+- "Implement ${company}'s key algorithms" (Algorithm Design)
+- "Design ${company}'s data processing pipeline" (Data Systems)
+- "Explain ${company}'s scalability approach" (System Architecture)
+`}
+`}
 
-Meta/Facebook - BEHAVIORAL:
-- "Tell me about a time you had to work with a difficult teammate"
-- "Describe a time when you had to make a trade-off decision"
-- "How do you handle receiving critical feedback?"
-- "Tell me about a time you improved a process"
-- "Describe a situation where you had to work with incomplete information"
+` : `
+🌍 **GENERAL TECHNICAL EXAMPLES**
+
+${displayMode === 'flashcard' ? `
+🎯 **GENERAL FLASHCARD EXAMPLES FOR TECHNICAL QUESTIONS**
+
+Common Technical Concept Flashcards:
+- "What is the difference between TCP and UDP?" (Networking)
+- "Explain database ACID properties" (Database concepts)
+- "What is Big O notation?" (Algorithm analysis)
+- "How does load balancing work?" (Scalability)
+- "Explain the difference between SQL and NoSQL" (Databases)
+- "What are design patterns?" (Software engineering)
+- "How does caching improve performance?" (Performance)
+- "What is the CAP theorem?" (Distributed systems)
+- "Explain REST API principles" (API design)
+- "What are microservices?" (Architecture)
+- "How does database indexing work?" (Database optimization)
+- "What is horizontal vs vertical scaling?" (Scalability)
+- "Explain the MVC pattern" (Architecture pattern)
+- "What is dependency injection?" (Design pattern)
+- "How does garbage collection work?" (Memory management)
+
+` : `
+GENERAL TECHNICAL EXAMPLES (commonly asked across companies):
+
+Common System Design Questions:
+- "Design a URL shortening service (like bit.ly)" (System Design)
+- "Design a chat application (like WhatsApp)" (System Design)
+- "Design a file storage system (like Dropbox)" (System Design)
+- "Design a video streaming service (like Netflix)" (System Design)
+- "Design a social media feed" (System Design)
+- "Design a ride-sharing service" (System Design)
+- "Design a notification system" (System Design)
+- "Design a distributed cache" (System Design)
+- "Design a search engine" (System Design)
+- "Design an e-commerce platform" (System Design)
+
+Common Technical Concepts:
+- "Explain database normalization" (Database Design)
+- "What are the differences between SQL and NoSQL?" (Database)
+- "How does load balancing work?" (Scalability)
+- "Explain microservices architecture" (Architecture)
+- "What is the CAP theorem?" (Distributed Systems)
+- "How does caching improve performance?" (Performance)
+- "Explain RESTful API design principles" (API Design)
+- "What are design patterns and give examples?" (Software Design)
+- "How does database indexing work?" (Database Optimization)
+- "Explain the difference between horizontal and vertical scaling" (Scalability)
+`}
+`}
 
 IMPORTANT: Use these as reference points for the types of questions actually asked at these companies. Keep technical and behavioral questions completely separate based on the questionType parameter.`;
 
