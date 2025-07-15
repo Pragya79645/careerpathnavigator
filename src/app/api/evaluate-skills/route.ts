@@ -363,10 +363,15 @@ function createDeterministicEvaluation(analysisData: any, frontendProjects: Proj
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('📊 Starting skill evaluation...');
+    
     const body: EvaluationRequest = await request.json();
     const { github_username, portfolio_url, skills_list } = body;
 
+    console.log('🔍 Request data:', { github_username, portfolio_url: !!portfolio_url, skills_list: !!skills_list });
+
     if (!github_username) {
+      console.log('❌ Missing GitHub username');
       return NextResponse.json(
         { error: 'GitHub username is required' },
         { status: 400 }
@@ -383,117 +388,184 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch GitHub user data
-    const userResponse = await fetch(`https://api.github.com/users/${github_username}`);
-    if (!userResponse.ok) {
-      return NextResponse.json(
-        { error: 'GitHub user not found' },
-        { status: 404 }
-      );
-    }
-    const userData: GitHubUser = await userResponse.json();
-
-    // Fetch GitHub repositories
-    const reposResponse = await fetch(`https://api.github.com/users/${github_username}/repos?per_page=100&sort=updated`);
-    if (!reposResponse.ok) {
-      return NextResponse.json(
-        { error: 'Failed to fetch repositories' },
-        { status: 500 }
-      );
-    }
-    const reposData: GitHubRepo[] = await reposResponse.json();
-
-    // Create a more specific cache key based on repository data
-    const repoSignature = reposData.slice(0, 10).map(r => `${r.name}-${r.updated_at}`).join('|');
-    const specificCacheKey = `${github_username}-${repoSignature}`;
-    const specificCacheHash = crypto.createHash('md5').update(specificCacheKey).digest('hex');
-
-    // Check cache with specific key for better consistency
-    if (evaluationCache.has(specificCacheHash)) {
-      return NextResponse.json(evaluationCache.get(specificCacheHash));
-    }
-
-    // Filter frontend-related repositories
-    const frontendLanguages = ['JavaScript', 'TypeScript', 'HTML', 'CSS', 'Vue', 'Svelte'];
-    const frontendKeywords = ['react', 'vue', 'angular', 'next', 'nuxt', 'svelte', 'frontend', 'web', 'ui', 'website', 'app'];
+    console.log('🔍 Fetching GitHub user data...');
     
-    const frontendRepos = reposData.filter(repo => {
-      const languageMatch = frontendLanguages.includes(repo.language);
-      const nameMatch = frontendKeywords.some(keyword => 
-        repo.name.toLowerCase().includes(keyword) || 
-        (repo.description && repo.description.toLowerCase().includes(keyword))
-      );
-      const topicsMatch = repo.topics.some(topic => 
-        frontendKeywords.some(keyword => topic.includes(keyword))
-      );
-      return languageMatch || nameMatch || topicsMatch;
-    });
-
-    // Enhanced project analysis
-    const enhancedProjects: ProjectDetails[] = reposData.map(repo => ({
-      name: repo.name,
-      description: repo.description || '',
-      language: repo.language || 'Unknown',
-      size_kb: repo.size,
-      stars: repo.stargazers_count,
-      forks: repo.forks_count,
-      topics: repo.topics || [],
-      homepage: repo.homepage || '',
-      created_at: repo.created_at,
-      updated_at: repo.updated_at,
-      is_frontend: frontendRepos.includes(repo),
-      html_url: repo.html_url,
-      complexity_indicators: {
-        has_dependencies: repo.size > 100, // Assume projects >100KB have dependencies
-        has_deployment: !!repo.homepage,
-        has_good_description: (repo.description?.length || 0) > 20,
-        estimated_complexity: repo.size > 500 ? 'High' : repo.size > 100 ? 'Medium' : 'Low' as 'Low' | 'Medium' | 'High'
+    try {
+      const userResponse = await fetch(`https://api.github.com/users/${github_username}`, {
+        headers: {
+          'User-Agent': 'CareerPathNavigator/1.0',
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      });
+      
+      if (!userResponse.ok) {
+        console.log('❌ GitHub user not found:', userResponse.status, userResponse.statusText);
+        
+        // Check if it's a rate limit issue
+        if (userResponse.status === 403) {
+          const rateLimitRemaining = userResponse.headers.get('x-ratelimit-remaining');
+          const rateLimitReset = userResponse.headers.get('x-ratelimit-reset');
+          
+          if (rateLimitRemaining === '0') {
+            const resetTime = rateLimitReset ? new Date(parseInt(rateLimitReset) * 1000).toLocaleString() : 'unknown';
+            return NextResponse.json(
+              { 
+                error: 'GitHub API rate limit exceeded. Please try again later.',
+                details: `Rate limit will reset at ${resetTime}`
+              },
+              { status: 429 }
+            );
+          }
+        }
+        
+        return NextResponse.json(
+          { error: 'GitHub user not found' },
+          { status: 404 }
+        );
       }
-    }));
+      
+      const userData: GitHubUser = await userResponse.json();
+      console.log('✅ GitHub user data fetched successfully');
 
-    const frontendProjectDetails = enhancedProjects.filter(p => p.is_frontend);
-    const otherProjectDetails = enhancedProjects.filter(p => !p.is_frontend);
+      // Fetch GitHub repositories
+      console.log('🔍 Fetching GitHub repositories...');
+      const reposResponse = await fetch(`https://api.github.com/users/${github_username}/repos?per_page=100&sort=updated`, {
+        headers: {
+          'User-Agent': 'CareerPathNavigator/1.0',
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      });
+      
+      if (!reposResponse.ok) {
+        console.log('❌ Failed to fetch repositories:', reposResponse.status, reposResponse.statusText);
+        
+        // Check if it's a rate limit issue
+        if (reposResponse.status === 403) {
+          const rateLimitRemaining = reposResponse.headers.get('x-ratelimit-remaining');
+          const rateLimitReset = reposResponse.headers.get('x-ratelimit-reset');
+          
+          if (rateLimitRemaining === '0') {
+            const resetTime = rateLimitReset ? new Date(parseInt(rateLimitReset) * 1000).toLocaleString() : 'unknown';
+            return NextResponse.json(
+              { 
+                error: 'GitHub API rate limit exceeded. Please try again later.',
+                details: `Rate limit will reset at ${resetTime}`
+              },
+              { status: 429 }
+            );
+          }
+        }
+        
+        return NextResponse.json(
+          { error: 'Failed to fetch repositories' },
+          { status: 500 }
+        );
+      }
+      
+      const reposData: GitHubRepo[] = await reposResponse.json();
+      console.log('✅ Fetched', reposData.length, 'repositories');
 
-    // Prepare data for AI analysis
-    const analysisData = {
-      user: {
-        username: userData.login,
-        public_repos: userData.public_repos,
-        followers: userData.followers,
-        account_age_days: Math.floor((Date.now() - new Date(userData.created_at).getTime()) / (1000 * 60 * 60 * 24)),
-        bio: userData.bio,
-        blog: userData.blog,
-        hireable: userData.hireable
-      },
-      repositories: frontendRepos.map(repo => ({
+      // Create a more specific cache key based on repository data
+      const repoSignature = reposData.slice(0, 10).map(r => `${r.name}-${r.updated_at}`).join('|');
+      const specificCacheKey = `${github_username}-${repoSignature}`;
+      const specificCacheHash = crypto.createHash('md5').update(specificCacheKey).digest('hex');
+
+      // Check cache with specific key for better consistency
+      if (evaluationCache.has(specificCacheHash)) {
+        return NextResponse.json(evaluationCache.get(specificCacheHash));
+      }
+
+      // Filter frontend-related repositories
+      const frontendLanguages = ['JavaScript', 'TypeScript', 'HTML', 'CSS', 'Vue', 'Svelte'];
+      const frontendKeywords = ['react', 'vue', 'angular', 'next', 'nuxt', 'svelte', 'frontend', 'web', 'ui', 'website', 'app'];
+      
+      const frontendRepos = reposData.filter(repo => {
+        const languageMatch = frontendLanguages.includes(repo.language);
+        const nameMatch = frontendKeywords.some(keyword => 
+          repo.name.toLowerCase().includes(keyword) || 
+          (repo.description && repo.description.toLowerCase().includes(keyword))
+        );
+        const topicsMatch = repo.topics.some(topic => 
+          frontendKeywords.some(keyword => topic.includes(keyword))
+        );
+        return languageMatch || nameMatch || topicsMatch;
+      });
+
+      // Enhanced project analysis
+      const enhancedProjects: ProjectDetails[] = reposData.map(repo => ({
         name: repo.name,
-        description: repo.description,
-        language: repo.language,
+        description: repo.description || '',
+        language: repo.language || 'Unknown',
+        size_kb: repo.size,
         stars: repo.stargazers_count,
         forks: repo.forks_count,
-        size_kb: repo.size,
-        topics: repo.topics,
-        homepage: repo.homepage,
-        age_days: Math.floor((Date.now() - new Date(repo.created_at).getTime()) / (1000 * 60 * 60 * 24)),
-        last_updated_days: Math.floor((Date.now() - new Date(repo.updated_at).getTime()) / (1000 * 60 * 60 * 24))
-      })),
-      portfolio_url: portfolio_url || userData.blog,
-      claimed_skills: skills_list || '',
-      total_frontend_repos: frontendRepos.length
-    };
+        topics: repo.topics || [],
+        homepage: repo.homepage || '',
+        created_at: repo.created_at,
+        updated_at: repo.updated_at,
+        is_frontend: frontendRepos.includes(repo),
+        html_url: repo.html_url,
+        complexity_indicators: {
+          has_dependencies: repo.size > 100, // Assume projects >100KB have dependencies
+          has_deployment: !!repo.homepage,
+          has_good_description: (repo.description?.length || 0) > 20,
+          estimated_complexity: repo.size > 500 ? 'High' : repo.size > 100 ? 'Medium' : 'Low' as 'Low' | 'Medium' | 'High'
+        }
+      }));
 
-    // Create deterministic evaluation using objective scoring
-    const deterministicEvaluation = createDeterministicEvaluation(analysisData, frontendProjectDetails);
+      const frontendProjectDetails = enhancedProjects.filter(p => p.is_frontend);
+      const otherProjectDetails = enhancedProjects.filter(p => !p.is_frontend);
 
-    // Call Gemini API for analysis with low temperature for consistency
-    const geminiResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=' + process.env.GEMINI_API_KEY, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: `You are an expert frontend developer evaluator. Use the provided DETERMINISTIC SCORING as your base evaluation and only make minimal adjustments if absolutely necessary.
+      // Prepare data for AI analysis
+      const analysisData = {
+        user: {
+          username: userData.login,
+          public_repos: userData.public_repos,
+          followers: userData.followers,
+          account_age_days: Math.floor((Date.now() - new Date(userData.created_at).getTime()) / (1000 * 60 * 60 * 24)),
+          bio: userData.bio,
+          blog: userData.blog,
+          hireable: userData.hireable
+        },
+        repositories: frontendRepos.map(repo => ({
+          name: repo.name,
+          description: repo.description,
+          language: repo.language,
+          stars: repo.stargazers_count,
+          forks: repo.forks_count,
+          size_kb: repo.size,
+          topics: repo.topics,
+          homepage: repo.homepage,
+          age_days: Math.floor((Date.now() - new Date(repo.created_at).getTime()) / (1000 * 60 * 60 * 24)),
+          last_updated_days: Math.floor((Date.now() - new Date(repo.updated_at).getTime()) / (1000 * 60 * 60 * 24))
+        })),
+        portfolio_url: portfolio_url || userData.blog,
+        claimed_skills: skills_list || '',
+        total_frontend_repos: frontendRepos.length
+      };
+
+      // Create deterministic evaluation using objective scoring
+      const deterministicEvaluation = createDeterministicEvaluation(analysisData, frontendProjectDetails);
+
+      // Call Gemini API for analysis with low temperature for consistency
+      let evaluation: EvaluationResponse;
+      
+      try {
+        // Check if Gemini API key is available
+        if (!process.env.GEMINI_API_KEY) {
+          console.warn('⚠️ GEMINI_API_KEY not found, using deterministic evaluation only');
+          throw new Error('GEMINI_API_KEY not configured');
+        }
+      
+      const geminiResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=' + process.env.GEMINI_API_KEY, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: `You are an expert frontend developer evaluator. Use the provided DETERMINISTIC SCORING as your base evaluation and only make minimal adjustments if absolutely necessary.
 
 DETERMINISTIC BASE EVALUATION:
 ${JSON.stringify(deterministicEvaluation, null, 2)}
@@ -527,96 +599,128 @@ ${JSON.stringify(analysisData, null, 2)}
 OUTPUT FORMAT: Return the deterministic evaluation with minimal changes only if absolutely necessary. Maintain consistency for the same profile.
 
 Only return JSON. No explanations or additional text.`
-          }]
-        }],
-        generationConfig: {
-          temperature: 0.1,
-          topK: 1,
-          topP: 0.1,
-          maxOutputTokens: 2048,
-        },
-        safetySettings: [
-          {
-            category: 'HARM_CATEGORY_HARASSMENT',
-            threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+            }]
+          }],
+          generationConfig: {
+            temperature: 0.1,
+            topK: 1,
+            topP: 0.1,
+            maxOutputTokens: 2048,
           },
-          {
-            category: 'HARM_CATEGORY_HATE_SPEECH',
-            threshold: 'BLOCK_MEDIUM_AND_ABOVE'
-          },
-          {
-            category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
-            threshold: 'BLOCK_MEDIUM_AND_ABOVE'
-          },
-          {
-            category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
-            threshold: 'BLOCK_MEDIUM_AND_ABOVE'
-          }
-        ]
-      }),
-    });
+          safetySettings: [
+            {
+              category: 'HARM_CATEGORY_HARASSMENT',
+              threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+            },
+            {
+              category: 'HARM_CATEGORY_HATE_SPEECH',
+              threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+            },
+            {
+              category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+              threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+            },
+            {
+              category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+              threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+            }
+          ]
+        }),
+      });
 
-    if (!geminiResponse.ok) {
-      throw new Error('Failed to get AI analysis');
-    }
-
-    const geminiResult = await geminiResponse.json();
-    const aiResponseText = geminiResult.candidates[0].content.parts[0].text;
-
-    // Parse the JSON response from Gemini
-    let evaluation: EvaluationResponse;
-    try {
-      // Clean up the response to extract JSON
-      const jsonMatch = aiResponseText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const aiEvaluation = JSON.parse(jsonMatch[0]);
-        // Merge AI evaluation with deterministic base, preferring deterministic scores for consistency
-        evaluation = {
-          ...deterministicEvaluation,
-          ...aiEvaluation,
-          // Always use deterministic scores for consistency
-          score_breakdown: deterministicEvaluation.score_breakdown,
-          total_score: deterministicEvaluation.total_score,
-          skill_level: deterministicEvaluation.skill_level,
-          skill_emoji: deterministicEvaluation.skill_emoji,
-          // Use AI for textual content if available
-          justification: aiEvaluation.justification || deterministicEvaluation.justification,
-          improvement_suggestions: aiEvaluation.improvement_suggestions || deterministicEvaluation.improvement_suggestions,
-          motivation: aiEvaluation.motivation || deterministicEvaluation.motivation,
-          // Add the enhanced project data
-          all_projects: enhancedProjects,
-          frontend_projects: frontendProjectDetails,
-          other_projects: otherProjectDetails
-        };
-      } else {
-        throw new Error('No valid JSON found in AI response');
+      if (!geminiResponse.ok) {
+        const errorText = await geminiResponse.text();
+        console.error('❌ Gemini API Error:', geminiResponse.status, geminiResponse.statusText, errorText);
+        throw new Error(`Gemini API failed: ${geminiResponse.status} ${geminiResponse.statusText}`);
       }
-    } catch (parseError) {
-      console.error('Failed to parse AI response:', parseError);
+
+      const geminiResult = await geminiResponse.json();
+      const aiResponseText = geminiResult.candidates[0].content.parts[0].text;
+
+      // Parse the JSON response from Gemini
+      try {
+        // Clean up the response to extract JSON
+        const jsonMatch = aiResponseText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const aiEvaluation = JSON.parse(jsonMatch[0]);
+          // Merge AI evaluation with deterministic base, preferring deterministic scores for consistency
+          evaluation = {
+            ...deterministicEvaluation,
+            ...aiEvaluation,
+            // Always use deterministic scores for consistency
+            score_breakdown: deterministicEvaluation.score_breakdown,
+            total_score: deterministicEvaluation.total_score,
+            skill_level: deterministicEvaluation.skill_level,
+            skill_emoji: deterministicEvaluation.skill_emoji,
+            // Use AI for textual content if available
+            justification: aiEvaluation.justification || deterministicEvaluation.justification,
+            improvement_suggestions: aiEvaluation.improvement_suggestions || deterministicEvaluation.improvement_suggestions,
+            motivation: aiEvaluation.motivation || deterministicEvaluation.motivation,
+            // Add the enhanced project data
+            all_projects: enhancedProjects,
+            frontend_projects: frontendProjectDetails,
+            other_projects: otherProjectDetails
+          };
+        } else {
+          throw new Error('No valid JSON found in AI response');
+        }
+      } catch (parseError) {
+        console.error('❌ Failed to parse AI response:', parseError);
+        throw parseError;
+      }
+    } catch (aiError) {
+      console.warn('⚠️ AI analysis failed, using deterministic evaluation as fallback:', aiError);
       // Use deterministic evaluation as fallback
-      evaluation = deterministicEvaluation;
-      evaluation.all_projects = enhancedProjects;
-      evaluation.frontend_projects = frontendProjectDetails;
-      evaluation.other_projects = otherProjectDetails;
+      evaluation = {
+        ...deterministicEvaluation,
+        all_projects: enhancedProjects,
+        frontend_projects: frontendProjectDetails,
+        other_projects: otherProjectDetails
+      };
     }
 
-    // Cache the result for consistency
-    evaluationCache.set(specificCacheHash, evaluation);
+      // Cache the result for consistency
+      evaluationCache.set(specificCacheHash, evaluation);
 
-    // Optional: Clear cache after some time to avoid memory issues
-    if (evaluationCache.size > 100) {
-      const firstKey = evaluationCache.keys().next().value;
-      if (firstKey) {
-        evaluationCache.delete(firstKey);
+      // Optional: Clear cache after some time to avoid memory issues
+      if (evaluationCache.size > 100) {
+        const firstKey = evaluationCache.keys().next().value;
+        if (firstKey) {
+          evaluationCache.delete(firstKey);
+        }
       }
-    }
 
-    return NextResponse.json(evaluation);
+      return NextResponse.json(evaluation);
+    } catch (fetchError) {
+      console.error('❌ Error fetching GitHub data:', fetchError);
+      return NextResponse.json(
+        { 
+          error: 'Failed to fetch GitHub data',
+          details: fetchError instanceof Error ? fetchError.message : 'Unknown error occurred'
+        },
+        { status: 500 }
+      );
+    }
 
   } catch (error) {
-    console.error('Error in skill evaluation:', error);
+    console.error('❌ Error in skill evaluation:', error);
+    
+    // Return more detailed error information
+    if (error instanceof Error) {
+      return NextResponse.json(
+        { 
+          error: error.message,
+          details: 'Please check your GitHub username and try again. If the issue persists, it might be a temporary API issue.'
+        },
+        { status: 500 }
+      );
+    }
+    
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: 'Internal server error',
+        details: 'An unexpected error occurred during evaluation. Please try again later.'
+      },
       { status: 500 }
     );
   }
@@ -624,7 +728,15 @@ Only return JSON. No explanations or additional text.`
 
 export async function GET() {
   return NextResponse.json(
-    { message: 'Frontend Skill Evaluator API - Use POST method' },
+    { 
+      message: 'Frontend Skill Evaluator API - Use POST method',
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      environment: {
+        hasGeminiKey: !!process.env.GEMINI_API_KEY,
+        nodeEnv: process.env.NODE_ENV
+      }
+    },
     { status: 200 }
   );
 }

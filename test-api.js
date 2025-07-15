@@ -1,32 +1,17 @@
-// Test script for failure analysis API
+// Test script for evaluate-skills API
 // Run this with: node test-api.js
 
-const testResumeText = `John Doe
-Software Engineer
-john.doe@email.com | (555) 123-4567
-
-EXPERIENCE
-Frontend Developer | TechCorp | 2021 - Present
-• Developed web applications using React
-• Worked with team members
-• Built user interfaces
-
-EDUCATION
-BS Computer Science | University | 2021
-
-SKILLS
-JavaScript, React, HTML, CSS`;
-
 const testData = {
-  resume_text: testResumeText,
-  interview_feedback: "Had trouble explaining technical concepts clearly",
-  test_performance: "Struggled with algorithmic problems",
-  target_role: "Senior Frontend Developer"
+  github_username: 'octocat', // GitHub's official test account
+  portfolio_url: 'https://github.com/octocat',
+  skills_list: 'JavaScript, React, Node.js'
 };
 
 async function testAPI() {
   try {
-    const response = await fetch('http://localhost:3000/api/failure-analysis', {
+    console.log('🧪 Testing evaluate-skills API...');
+    
+    const response = await fetch('http://localhost:3000/api/evaluate-skills', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -34,17 +19,32 @@ async function testAPI() {
       body: JSON.stringify(testData),
     });
 
+    console.log('📊 Response status:', response.status);
+    console.log('📊 Response headers:', Object.fromEntries(response.headers.entries()));
+
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error('API Error:', errorData);
+      const errorText = await response.text();
+      console.error('❌ Error response:', errorText);
       return;
     }
 
     const result = await response.json();
-    console.log('API Success!');
-    console.log('Analysis:', JSON.stringify(result, null, 2));
+    console.log('✅ API Response:', {
+      skill_level: result.skill_level,
+      total_score: result.total_score,
+      frontend_projects_count: result.frontend_projects?.length || 0,
+      all_projects_count: result.all_projects?.length || 0,
+      has_error: !!result.error
+    });
+
+    if (result.error) {
+      console.error('❌ API returned error:', result.error);
+    } else {
+      console.log('✅ API test successful!');
+    }
+
   } catch (error) {
-    console.error('Test failed:', error);
+    console.error('❌ Test failed:', error.message);
   }
 }
 
