@@ -527,7 +527,38 @@ For each DSA question, provide COMPREHENSIVE answers that include:
 - Similar problems and patterns
 - When to use this approach in real scenarios
 
-For resources, prioritize LeetCode problem sets and patterns, algorithm visualization tools, DSA-focused GitHub repositories, and algorithm courses.`;
+MANDATORY DSA RESOURCES TO INCLUDE:
+Always include these specific DSA resources in your response:
+
+1. "Striver's A2Z DSA Course/Sheet" - https://takeuforward.org/strivers-a2z-dsa-course/strivers-a2z-dsa-course-sheet-2/
+   Type: Website
+   Description: Comprehensive DSA course with structured learning path
+
+2. "Abdul Bari Algorithms Playlist" - https://www.youtube.com/playlist?list=PLDN4rrl48XKpZkf03iYFl-O29szjTrs_O
+   Type: Video
+   Description: Detailed algorithm explanations and implementations
+
+3. "HackerRank Algorithms" - https://www.hackerrank.com/domains/algorithms
+   Type: Practice Platform
+   Description: Algorithm practice problems with varying difficulty levels
+
+4. "HackerRank Data Structures" - https://www.hackerrank.com/domains/data-structures
+   Type: Practice Platform
+   Description: Data structure implementation and problem-solving practice
+
+5. "Algorithms Part 1 (Princeton/Coursera)" - https://www.coursera.org/learn/algorithms-part1
+   Type: Course
+   Description: Comprehensive algorithms course covering fundamental concepts
+
+6. "Algorithms Part 2 (Princeton/Coursera)" - https://www.coursera.org/learn/algorithms-part2
+   Type: Course
+   Description: Advanced algorithms course covering graph algorithms and string processing
+
+Additional recommended resources:
+- LeetCode problem sets and patterns
+- Algorithm visualization tools
+- DSA-focused GitHub repositories
+- NeetCode for structured practice`;
       break;
     default:
       promptBase += ' Include a balanced mix of questions. For resources, provide a well-rounded selection covering technical, behavioral, and DSA preparation.';
@@ -543,6 +574,14 @@ For Technical/DSA Questions:
 - "System Design Primer" - https://github.com/donnemartin/system-design-primer
 - "Blind 75 Questions" - https://leetcode.com/discuss/general-discussion/460599/blind-75-leetcode-questions
 - "Cracking the Coding Interview" - Popular book by Gayle McDowell
+
+For DSA Specific Resources:
+- "Striver's A2Z DSA Course/Sheet" - https://takeuforward.org/strivers-a2z-dsa-course/strivers-a2z-dsa-course-sheet-2/
+- "Abdul Bari Algorithms Playlist" - https://www.youtube.com/playlist?list=PLDN4rrl48XKpZkf03iYFl-O29szjTrs_O
+- "HackerRank Algorithms" - https://www.hackerrank.com/domains/algorithms
+- "HackerRank Data Structures" - https://www.hackerrank.com/domains/data-structures
+- "Algorithms Part 1 (Princeton/Coursera)" - https://www.coursera.org/learn/algorithms-part1
+- "Algorithms Part 2 (Princeton/Coursera)" - https://www.coursera.org/learn/algorithms-part2
 
 For Behavioral Questions:
 - "STAR Method Guide" - https://www.indeed.com/career-advice/interviewing/how-to-use-the-star-method
