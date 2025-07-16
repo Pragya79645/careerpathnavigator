@@ -8,6 +8,7 @@ import { ArrowDownCircle, BookOpen, Clock, Search, ChevronRight,
 export default function TargetCompanyRoadmap() {
   const [company, setCompany] = useState('');
   const [role, setRole] = useState('');
+  const [timeline, setTimeline] = useState('8 weeks');
   const [loading, setLoading] = useState(false);
   const [roadmap, setRoadmap] = useState('');
   const [activeSection, setActiveSection] = useState<string | null>(null);
@@ -37,7 +38,7 @@ export default function TargetCompanyRoadmap() {
       const res = await fetch('/api/company-roadmap', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ company, role }),
+        body: JSON.stringify({ company, role, timeline }),
       });
 
       if (!res.ok) {
@@ -49,7 +50,7 @@ export default function TargetCompanyRoadmap() {
       setRoadmap(data.roadmap);
       
       // Set the first section as active by default
-      const firstSectionMatch = data.roadmap.match(/## \d+\.\s*(.*)/);
+      const firstSectionMatch = data.roadmap.match(/^## \d+\.\s*[🧾🛠💬📈📚📦🧪📆⚠]\s*(.*)/m);
       if (firstSectionMatch && firstSectionMatch[1]) {
         setActiveSection(firstSectionMatch[1].trim());
       }
@@ -73,9 +74,9 @@ export default function TargetCompanyRoadmap() {
   const tableOfContents = roadmap
     ? roadmap
         .split('\n')
-        .filter(line => line.match(/^## \d+\./))
+        .filter(line => line.match(/^## \d+\.\s*[🧾🛠💬📈📚📦🧪📆⚠]/))
         .map(line => {
-          const match = line.match(/## \d+\.\s*(.*)/);
+          const match = line.match(/^## \d+\.\s*[🧾🛠💬📈📚📦🧪📆⚠]\s*(.*)/);
           return match ? match[1].trim() : '';
         })
     : [];
@@ -90,28 +91,29 @@ export default function TargetCompanyRoadmap() {
 
   // Custom renderer for ReactMarkdown
   const customRenderers = {
-    h2: (({ children }) => {
+    h2: (({ children, ...props }: any) => {
       const text = children ? children.toString() : '';
-      const match = text.match(/\d+\.\s*(.*)/);
-      const sectionTitle = match ? match[1] : text;
+      const match = text.match(/^(\d+\.\s*[🧾🛠💬📈📚📦🧪📆⚠]\s*)(.*)/);
+      const sectionTitle = match ? match[2] : text;
       const id = sectionTitle.replace(/\s+/g, '-').toLowerCase();
       
       return (
         <h2 
           id={id} 
           className="text-2xl font-bold text-indigo-700 mt-10 mb-6 pb-3 border-b border-indigo-100"
+          {...props}
         >
           {text}
         </h2>
       );
     }),
-    ul: (({ children }) => (
-      <ul className="list-disc ml-6 my-5 space-y-3">
+    ul: (({ children, ...props }: any) => (
+      <ul className="list-disc ml-6 my-5 space-y-3" {...props}>
         {children}
       </ul>
     )),
-    li: (({ children }: { children: React.ReactNode }) => (
-      <li className="text-gray-700">{children}</li>
+    li: (({ children, ...props }: any) => (
+      <li className="text-gray-700" {...props}>{children}</li>
     )),
   };
 
@@ -163,7 +165,7 @@ export default function TargetCompanyRoadmap() {
                  Generate Your Career Roadmap
                 </span>
           
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="grid md:grid-cols-3 gap-6">
             <div className="space-y-3">
               <label htmlFor="company" className="flex items-center text-gray-700 font-medium">
                 <Search className="h-4 w-4 mr-2 text-indigo-500" />
@@ -190,6 +192,23 @@ export default function TargetCompanyRoadmap() {
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
               />
+            </div>
+
+            <div className="space-y-3">
+              <label htmlFor="timeline" className="flex items-center text-gray-700 font-medium">
+                <Clock className="h-4 w-4 mr-2 text-indigo-500" />
+                Preparation Timeline
+              </label>
+              <select
+                id="timeline"
+                className="w-full p-3.5 text-gray-700 bg-gray-50 border border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition-all"
+                value={timeline}
+                onChange={(e) => setTimeline(e.target.value)}
+              >
+                <option value="4 weeks">4 weeks</option>
+                <option value="8 weeks">8 weeks</option>
+                <option value="12 weeks">12 weeks</option>
+              </select>
             </div>
           </div>
 
