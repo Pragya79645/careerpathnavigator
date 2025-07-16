@@ -23,6 +23,16 @@ interface Resource {
   description?: string;
 }
 
+interface RelatedProgram {
+  name: string;
+  description: string;
+  eligibleFor: string[];
+  applyWindow: string;
+  outcome: string;
+  link?: string;
+  type: 'Internship' | 'Challenge' | 'Hiring Program' | 'Campus Program';
+}
+
 // Define the new response interface
 interface InterviewPrepResponse {
   mode: 'general' | 'company-specific';
@@ -39,6 +49,7 @@ interface InterviewPrepResponse {
   applicationTimeline?: string;
   preparationTimeEstimate?: string;
   sourceNote?: string;
+  relatedPrograms?: RelatedProgram[];
 }
 
 export default function InterviewQuestionsGenerator() {
@@ -52,6 +63,322 @@ export default function InterviewQuestionsGenerator() {
   const [error, setError] = useState<string | null>(null);
   const [savedQuestions, setSavedQuestions] = useState<Set<number>>(new Set());
   const [activeAnswerIndex, setActiveAnswerIndex] = useState<number | null>(null);
+
+  // Helper function to generate company-specific resource links
+  const getCompanySpecificLinks = (companyName: string) => {
+    const company = companyName.toLowerCase();
+    
+    const companyLinks = {
+      google: [
+        {
+          title: "Google STEP Internship",
+          url: "https://buildyourfuture.withgoogle.com/programs/step/",
+          description: "Student Training in Engineering Program",
+          icon: "🎓"
+        },
+        {
+          title: "Google Summer of Code",
+          url: "https://summerofcode.withgoogle.com/",
+          description: "Global open source development program",
+          icon: "☀️"
+        },
+        {
+          title: "Google Careers - Student Jobs",
+          url: "https://careers.google.com/students/",
+          description: "All student opportunities and internships",
+          icon: "💼"
+        },
+        {
+          title: "Google Developer Student Clubs",
+          url: "https://developers.google.com/community/dsc",
+          description: "University student developer communities",
+          icon: "👥"
+        }
+      ],
+      amazon: [
+        {
+          title: "Amazon WOW Program",
+          url: "https://www.amazon.jobs/en/landing_pages/wow",
+          description: "Women in Tech hiring program",
+          icon: "👩‍💻"
+        },
+        {
+          title: "Amazon Future Engineer",
+          url: "https://www.amazonfutureengineer.com/",
+          description: "Computer science education program",
+          icon: "🔬"
+        },
+        {
+          title: "Amazon University Recruiting",
+          url: "https://www.amazon.jobs/en/teams/university-recruiting",
+          description: "Campus hiring and internship programs",
+          icon: "🎓"
+        },
+        {
+          title: "Amazon Propel Program",
+          url: "https://www.amazon.jobs/en/landing_pages/propel",
+          description: "Campus recruiting for diverse talent",
+          icon: "🚀"
+        }
+      ],
+      microsoft: [
+        {
+          title: "Microsoft Engage Program",
+          url: "https://careers.microsoft.com/students/us/en/usengagementprogram",
+          description: "Internship program for students",
+          icon: "🎯"
+        },
+        {
+          title: "Microsoft Imagine Cup",
+          url: "https://imaginecup.microsoft.com/",
+          description: "Global student technology competition",
+          icon: "🏆"
+        },
+        {
+          title: "Microsoft Learn Student Ambassadors",
+          url: "https://studentambassadors.microsoft.com/",
+          description: "Campus program for student developers",
+          icon: "🎓"
+        },
+        {
+          title: "Microsoft University Recruiting",
+          url: "https://careers.microsoft.com/students/us/en",
+          description: "Student careers and internship opportunities",
+          icon: "💼"
+        }
+      ],
+      meta: [
+        {
+          title: "Meta University Program",
+          url: "https://www.metacareers.com/careerprograms/pathways/metauniversity",
+          description: "Internship program for underrepresented students",
+          icon: "🎓"
+        },
+        {
+          title: "Meta Hacker Cup",
+          url: "https://www.facebook.com/codingcompetitions/hacker-cup",
+          description: "Annual programming contest",
+          icon: "🏆"
+        },
+        {
+          title: "Meta Careers - University",
+          url: "https://www.metacareers.com/students/",
+          description: "University recruiting and internships",
+          icon: "💼"
+        },
+        {
+          title: "Meta Developer Circles",
+          url: "https://developers.facebook.com/developercircles/",
+          description: "Community program for developers",
+          icon: "👥"
+        }
+      ],
+      facebook: [
+        {
+          title: "Meta University Program",
+          url: "https://www.metacareers.com/careerprograms/pathways/metauniversity",
+          description: "Internship program for underrepresented students",
+          icon: "🎓"
+        },
+        {
+          title: "Meta Hacker Cup",
+          url: "https://www.facebook.com/codingcompetitions/hacker-cup",
+          description: "Annual programming contest",
+          icon: "🏆"
+        },
+        {
+          title: "Meta Careers - University",
+          url: "https://www.metacareers.com/students/",
+          description: "University recruiting and internships",
+          icon: "💼"
+        },
+        {
+          title: "Meta Developer Circles",
+          url: "https://developers.facebook.com/developercircles/",
+          description: "Community program for developers",
+          icon: "👥"
+        }
+      ],
+      apple: [
+        {
+          title: "Apple WWDC Scholarship",
+          url: "https://developer.apple.com/wwdc/scholarships/",
+          description: "Student scholarship for developer conference",
+          icon: "🎓"
+        },
+        {
+          title: "Apple Swift Student Challenge",
+          url: "https://developer.apple.com/swift-student-challenge/",
+          description: "Annual coding challenge for students",
+          icon: "⚡"
+        },
+        {
+          title: "Apple University Recruiting",
+          url: "https://jobs.apple.com/en-us/search?team=students-and-recent-grads-STDNT-RECNT",
+          description: "Student and recent graduate opportunities",
+          icon: "💼"
+        },
+        {
+          title: "Apple Pathways Alliance",
+          url: "https://www.apple.com/careers/us/pathways-alliance.html",
+          description: "Diversity and inclusion program",
+          icon: "🌈"
+        }
+      ],
+      netflix: [
+        {
+          title: "Netflix UCAN Program",
+          url: "https://jobs.netflix.com/diversity-and-inclusion",
+          description: "Underrepresented communities program",
+          icon: "🎬"
+        },
+        {
+          title: "Netflix Technical Internship",
+          url: "https://jobs.netflix.com/search?q=internship",
+          description: "Summer internship program",
+          icon: "💻"
+        },
+        {
+          title: "Netflix University Recruiting",
+          url: "https://jobs.netflix.com/university",
+          description: "Campus recruiting and early career",
+          icon: "🎓"
+        }
+      ],
+      tcs: [
+        {
+          title: "TCS CodeVita",
+          url: "https://www.tcs.com/careers/codevita",
+          description: "Global programming contest",
+          icon: "🏆"
+        },
+        {
+          title: "TCS NQT",
+          url: "https://www.tcs.com/careers/tcs-national-qualifier-test",
+          description: "National Qualifier Test for hiring",
+          icon: "📝"
+        },
+        {
+          title: "TCS Campus Hiring",
+          url: "https://www.tcs.com/careers/campus-hiring",
+          description: "Campus recruitment program",
+          icon: "🎓"
+        }
+      ],
+      flipkart: [
+        {
+          title: "Flipkart GRiD",
+          url: "https://dare2compete.com/o/flipkart-grid-40-software-development-track-flipkart-grid-40-flipkart-147186",
+          description: "National tech challenge for students",
+          icon: "🚀"
+        },
+        {
+          title: "Flipkart Runway",
+          url: "https://www.flipkartcareers.com/#!/",
+          description: "Campus hiring program",
+          icon: "🎯"
+        },
+        {
+          title: "Flipkart Campus Hiring",
+          url: "https://www.flipkartcareers.com/#!/job-opportunities/campus-hiring",
+          description: "Student and graduate opportunities",
+          icon: "🎓"
+        }
+      ],
+      uber: [
+        {
+          title: "Uber HackTag",
+          url: "https://www.uber.com/us/en/careers/teams/university/",
+          description: "Coding challenge and university program",
+          icon: "🚗"
+        },
+        {
+          title: "Uber University",
+          url: "https://www.uber.com/us/en/careers/teams/university/",
+          description: "Campus recruitment program",
+          icon: "🎓"
+        },
+        {
+          title: "Uber Internships",
+          url: "https://www.uber.com/us/en/careers/list/?department=University",
+          description: "Summer internship opportunities",
+          icon: "💼"
+        }
+      ],
+      zomato: [
+        {
+          title: "Zomato25 Program",
+          url: "https://www.zomato.com/careers",
+          description: "Campus hiring program",
+          icon: "🍕"
+        },
+        {
+          title: "Zomato Campus Hiring",
+          url: "https://www.zomato.com/careers/campus-hiring",
+          description: "Student recruitment opportunities",
+          icon: "🎓"
+        }
+      ],
+      swiggy: [
+        {
+          title: "Swiggy Step Up",
+          url: "https://careers.swiggy.com/",
+          description: "Internship program",
+          icon: "🛵"
+        },
+        {
+          title: "Swiggy Campus Hiring",
+          url: "https://careers.swiggy.com/campus-hiring",
+          description: "Student and graduate opportunities",
+          icon: "🎓"
+        }
+      ],
+      razorpay: [
+        {
+          title: "Razorpay FTX",
+          url: "https://razorpay.com/careers/",
+          description: "Campus hiring initiative",
+          icon: "💳"
+        },
+        {
+          title: "Razorpay Campus Program",
+          url: "https://razorpay.com/careers/campus-hiring/",
+          description: "Student recruitment program",
+          icon: "🎓"
+        }
+      ]
+    };
+
+    // Return company-specific links or fallback to general links
+    return companyLinks[company] || [
+      {
+        title: `${companyName} Careers`,
+        url: `https://www.${company}.com/careers`,
+        description: "Official careers page",
+        icon: "💼"
+      },
+      {
+        title: `${companyName} LinkedIn`,
+        url: `https://www.linkedin.com/company/${company}/jobs/`,
+        description: "Latest job openings",
+        icon: "in"
+      },
+      {
+        title: `${companyName} University Program`,
+        url: `https://www.${company}.com/university-recruiting`,
+        description: "Student and graduate opportunities",
+        icon: "🎓"
+      }
+    ];
+  };
+
+  // Helper function to safely format eligibleFor field
+  const formatEligibleFor = (eligibleFor: string[] | string | undefined) => {
+    if (!eligibleFor) return 'All students';
+    if (Array.isArray(eligibleFor)) return eligibleFor.join(', ');
+    if (typeof eligibleFor === 'string') return eligibleFor;
+    return 'All students';
+  };
 
   // Test API connectivity
   const testApiConnectivity = async () => {
@@ -663,6 +990,101 @@ export default function InterviewQuestionsGenerator() {
                   </div>
                 )}
 
+                {/* Related Programs - Bonus Opportunity Alert (Sidebar) */}
+                {prepResponse.relatedPrograms && prepResponse.relatedPrograms.length > 0 && (
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4">
+                    <div className="font-medium text-green-800 mb-2 flex items-center gap-2">
+                      <span className="text-base">🎯</span>
+                      <span>Bonus Opportunities</span>
+                    </div>
+                    <div className="text-xs text-green-700 mb-3">
+                      Since you're targeting {prepResponse.company}, check these out:
+                    </div>
+                    <div className="space-y-2">
+                      {prepResponse.relatedPrograms.map((program, index) => (
+                        <div key={index} className="bg-white rounded-lg p-3 border border-green-200">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-semibold text-green-900">{program.name}</span>
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${
+                              program.type === 'Internship' ? 'bg-blue-100 text-blue-800' :
+                              program.type === 'Challenge' ? 'bg-purple-100 text-purple-800' :
+                              program.type === 'Hiring Program' ? 'bg-green-100 text-green-800' :
+                              'bg-orange-100 text-orange-800'
+                            }`}>
+                              {program.type}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-600 mb-2">{program.description}</p>
+                          <div className="grid grid-cols-1 gap-1 text-xs">
+                            <div className="flex items-center gap-1">
+                              <span className="text-gray-500">👥</span>
+                              <span className="text-gray-700">{formatEligibleFor(program.eligibleFor)}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-gray-500">📅</span>
+                              <span className="text-gray-700">{program.applyWindow}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-gray-500">🎯</span>
+                              <span className="text-green-700 font-medium">{program.outcome}</span>
+                            </div>
+                          </div>
+                          {program.link && (
+                            <a 
+                              href={program.link} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs text-green-600 hover:text-green-800 hover:underline mt-2"
+                            >
+                              <span>Learn more</span>
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                              </svg>
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Get to Know More Section - Sidebar */}
+                    <div className="mt-3 pt-3 border-t border-green-200">
+                      <div className="flex items-center gap-1 mb-2">
+                        <span className="text-sm">📚</span>
+                        <h4 className="text-xs font-semibold text-gray-800">Get to Know More</h4>
+                      </div>
+                      <div className="space-y-2">
+                        {getCompanySpecificLinks(prepResponse.company).slice(0, 3).map((link, index) => (
+                          <a 
+                            key={index}
+                            href={link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block bg-white rounded-lg p-2 border border-blue-200 hover:border-blue-300 transition-colors group"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm">{link.icon}</span>
+                              <span className="text-xs font-medium text-gray-800 flex-1">{link.title}</span>
+                              <svg className="w-3 h-3 text-blue-500 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V8a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                              </svg>
+                            </div>
+                            <p className="text-xs text-gray-600 mt-1">{link.description}</p>
+                          </a>
+                        ))}
+                        
+                        {/* Show "View All" link if there are more than 3 programs */}
+                        {getCompanySpecificLinks(prepResponse.company).length > 3 && (
+                          <div className="text-center pt-2">
+                            <span className="text-xs text-gray-500">
+                              +{getCompanySpecificLinks(prepResponse.company).length - 3} more programs
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="bg-white border border-gray-200 rounded-lg p-4">
                   <div className="flex items-center gap-2 text-sm text-gray-600">
                     <Sparkles size={16} className="text-purple-400" />
@@ -814,8 +1236,7 @@ export default function InterviewQuestionsGenerator() {
                   </motion.div>
                 ))}
               </div>
-              
-              {/* Resources Section */}
+                {/* Resources Section */}
               {prepResponse?.resources && prepResponse.resources.length > 0 && (
                 <div className="p-4 sm:p-5 bg-gradient-to-r from-blue-50 to-purple-50 border-t border-gray-100">
                   <div className="font-medium text-gray-700 mb-3">📚 Recommended Resources</div>
@@ -850,7 +1271,7 @@ export default function InterviewQuestionsGenerator() {
                                   <span>Visit</span>
                                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                    </svg>
+                                    </svg>
                                 </a>
                               )}
                             </div>
@@ -864,6 +1285,153 @@ export default function InterviewQuestionsGenerator() {
                   </div>
                 </div>
               )}
+
+              {/* Related Programs Section - Bonus Opportunity Alert */}
+              {prepResponse?.relatedPrograms && prepResponse.relatedPrograms.length > 0 && (
+                <div className="p-4 sm:p-5 bg-gradient-to-r from-green-50 to-emerald-50 border-t border-gray-100">
+                  <div className="font-medium text-gray-700 mb-3 flex items-center gap-2">
+                    <span className="text-xl">🎯</span>
+                    <span>Bonus Opportunity Alert</span>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 border border-green-200 shadow-sm">
+                    <p className="text-sm text-gray-600 mb-4">
+                      Since you're targeting <span className="font-semibold text-green-700">{prepResponse.company}</span>, 
+                      here are some additional opportunities you should consider:
+                    </p>
+                    <div className="grid grid-cols-1 gap-4">
+                      {prepResponse.relatedPrograms.map((program, index) => (
+                        <div key={index} className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200">
+                          <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0 mt-1">
+                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                program.type === 'Internship' ? 'bg-blue-100 text-blue-800' :
+                                program.type === 'Challenge' ? 'bg-purple-100 text-purple-800' :
+                                program.type === 'Hiring Program' ? 'bg-green-100 text-green-800' :
+                                program.type === 'Campus Program' ? 'bg-orange-100 text-orange-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {program.type}
+                              </span>
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <h4 className="text-sm font-semibold text-gray-900">{program.name}</h4>
+                                {program.link && (
+                                  <a 
+                                    href={program.link} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="text-green-600 hover:text-green-800 text-xs flex items-center gap-1 hover:underline"
+                                  >
+                                    <span>Visit</span>
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                                    </svg>
+                                  </a>
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-600 mb-2">{program.description}</p>
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                                <div className="flex items-center gap-1">
+                                  <span className="text-gray-500">👥 Open to:</span>
+                                  <span className="text-gray-700">{formatEligibleFor(program.eligibleFor)}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-gray-500">📅 Apply:</span>
+                                  <span className="text-gray-700">{program.applyWindow}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-gray-500">🎯 Leads to:</span>
+                                  <span className="text-green-700 font-medium">{program.outcome}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Get to Know More Section */}
+                    <div className="mt-4 pt-4 border-t border-green-200">
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-base">📚</span>
+                        <h4 className="text-sm font-semibold text-gray-800">Get to Know More</h4>
+                      </div>
+                      <p className="text-xs text-gray-600 mb-3">
+                        Explore specific programs and opportunities at {prepResponse.company}:
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {getCompanySpecificLinks(prepResponse.company).map((link, index) => (
+                          <a 
+                            key={index}
+                            href={link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="bg-white rounded-lg p-3 border border-blue-200 hover:border-blue-300 transition-colors group"
+                          >
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-base">{link.icon}</span>
+                              <span className="text-sm font-medium text-gray-800 flex-1">{link.title}</span>
+                              <svg className="w-3 h-3 text-blue-500 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V8a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                              </svg>
+                            </div>
+                            <p className="text-xs text-gray-600">{link.description}</p>
+                          </a>
+                        ))}
+                      </div>
+                      
+                      {/* Additional General Resources */}
+                      <div className="mt-4 pt-3 border-t border-gray-200">
+                        <h5 className="text-xs font-medium text-gray-700 mb-2">Additional Resources</h5>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <a 
+                            href={`https://www.naukri.com/campus/career-guidance/${prepResponse.company.toLowerCase()}-internship-guide`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="bg-gray-50 rounded-lg p-2 border border-gray-200 hover:border-gray-300 transition-colors group"
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                                <span className="text-white text-xs font-bold">N</span>
+                              </div>
+                              <span className="text-xs font-medium text-gray-800">Naukri Guide</span>
+                            </div>
+                          </a>
+                          
+                          <a 
+                            href={`https://www.glassdoor.com/Interview/${prepResponse.company}-Interview-Questions-E${prepResponse.company.toLowerCase()}.htm`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="bg-gray-50 rounded-lg p-2 border border-gray-200 hover:border-gray-300 transition-colors group"
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                                <span className="text-white text-xs font-bold">G</span>
+                              </div>
+                              <span className="text-xs font-medium text-gray-800">Glassdoor</span>
+                            </div>
+                          </a>
+                          
+                          <a 
+                            href={`https://www.ambitionbox.com/overview/${prepResponse.company.toLowerCase().replace(/\s+/g, '-')}-overview`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="bg-gray-50 rounded-lg p-2 border border-gray-200 hover:border-gray-300 transition-colors group"
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 bg-purple-500 rounded-full flex items-center justify-center">
+                                <span className="text-white text-xs font-bold">A</span>
+                              </div>
+                              <span className="text-xs font-medium text-gray-800">AmbitionBox</span>
+                            </div>
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
               
               <div className="p-4 sm:p-5 bg-gray-50 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
                 {/* Only show on mobile/tablet */}
@@ -872,7 +1440,7 @@ export default function InterviewQuestionsGenerator() {
                     <Sparkles size={16} className="text-purple-400" />
                   </div>
                   <span className="text-xs sm:text-sm text-gray-600">
-                    Powered by Groq AI
+                    Powered by Gemini AI
                   </span>
                 </div>
                 

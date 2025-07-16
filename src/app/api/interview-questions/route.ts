@@ -25,6 +25,17 @@ interface Resource {
   description?: string;
 }
 
+// Structure for related programs (internships, challenges, etc.)
+interface RelatedProgram {
+  name: string;
+  description: string;
+  eligibleFor: string[];
+  applyWindow: string;
+  outcome: string;
+  link?: string;
+  type: 'Internship' | 'Challenge' | 'Hiring Program' | 'Campus Program';
+}
+
 // Structure for the new response format
 interface InterviewPrepResponse {
   mode: 'general' | 'company-specific';
@@ -41,6 +52,7 @@ interface InterviewPrepResponse {
   applicationTimeline?: string;
   preparationTimeEstimate?: string;
   sourceNote?: string;
+  relatedPrograms?: RelatedProgram[];
 }
 
 export async function POST(req: NextRequest) {
@@ -310,11 +322,10 @@ export async function GET() {
     return NextResponse.json(
       { 
         status: 'ERROR', 
-        timestamp: new Date().toISOString(),
-        error: error instanceof Error ? error.message : 'Unknown error',
-        hasApiKey: !!process.env.GROQ_API_KEY,
-        nodeEnv: process.env.NODE_ENV || 'development',
-        envDetails: envDetails
+        timestamp: new Date().toISOString(),      error: error instanceof Error ? error.message : 'Unknown error',
+      hasApiKey: !!process.env.GROQ_API_KEY,
+      nodeEnv: process.env.NODE_ENV || 'development',
+      envDetails: envDetails
       },
       { status: 500 }
     );
@@ -418,6 +429,242 @@ If the user provides a target company (e.g., Amazon) and a role (e.g., SDE), ret
 8. Application timeline (if known)
 9. Estimated preparation time needed
 10. Include a sourceNote mentioning that questions were gathered from verified sources like Glassdoor, LeetCode company tags, and interview experiences
+11. **DYNAMIC INTERNSHIP PROGRAM DISCOVERY**: 
+    - **MANDATORY**: Research and include ALL active internship programs for ${company || 'the specified company'}
+    - **COMPREHENSIVE COVERAGE**: Include 5-10 different programs covering:
+      * Summer internships (traditional 10-12 week programs)
+      * Year-round internships (rolling admissions)
+      * Coding challenges and competitions
+      * Campus recruitment drives
+      * Diversity and inclusion programs
+      * Research programs and fellowships
+      * Early career programs for new graduates
+      * Community programs and ambassadorships
+      * Innovation labs and internal programs
+      * Third-party partnerships and collaborations
+    
+    - **PROGRAM INTELLIGENCE**: For each program, provide:
+      * Exact program name and official title
+      * Detailed program description and objectives
+      * Specific eligibility criteria (as array: ["Students", "Final year", "Computer Science"])
+      * Application timeline and deadlines
+      * Program duration and location
+      * Expected outcomes (internship, PPO, FTE, certification, etc.)
+      * Application process and requirements
+      * Program type classification
+      * Official links when available
+    
+    - **CURRENT INFORMATION**: Prioritize the most recent and active programs:
+      * Include newly launched initiatives from 2024-2025
+      * Mention seasonal programs with current application windows
+      * Include both established programs and pilot programs
+      * Cover global programs and region-specific opportunities
+      * Include virtual/remote programs introduced post-2020
+    
+    - **FALLBACK STRATEGY**: If specific programs are unknown:
+      * Research common program types for similar companies
+      * Suggest checking company career pages and LinkedIn
+      * Mention industry-standard programs they likely offer
+      * Recommend third-party platforms (AngelList, Glassdoor, LinkedIn Jobs)
+      * Include generic advice for finding hidden opportunities
+    
+    - **VERIFICATION SOURCES**: Base program information on:
+      * Official company career pages
+      * LinkedIn company pages and posts
+      * University career center partnerships
+      * Tech community forums and discussions
+      * Recent news articles and press releases
+      * Alumni networks and experience sharing
+      * Third-party aggregator platforms
+    
+    **CRITICAL**: The relatedPrograms field should contain comprehensive, well-researched, and current information about ALL available programs for the specified company. This is a key differentiator of your service.
+
+12. **BONUS OPPORTUNITY ALERT**: Include relatedPrograms field with internship programs, coding challenges, or hiring initiatives run by that company
+
+**RELATED PROGRAMS REQUIREMENTS:**
+When a target company is provided, include comprehensive internship programs, coding challenges, and off-campus hiring initiatives run by that company. Research and include ALL active programs for the specified company. Examples include:
+
+**Google:**
+- Google STEP Internship (Student Training in Engineering Program) - Summer internship for underrepresented students (Apply: Jan-Mar)
+- Google Summer of Code (GSoC) - Global program for open source development (Apply: Mar-Apr)
+- Google Code-in - Contest for pre-university students (13-17 years) (Apply: Oct-Nov)
+- Google AI Residency Program - 12-month research program (Apply: Oct-Dec)
+- Google Developer Student Clubs (DSC) - University program for student developers (Apply: Year-round)
+- Google Software Engineer Internship - Summer technical internship (Apply: Aug-Oct)
+- Google BOLD Internship - Business internship program (Apply: Jan-Mar)
+- Google Applied Digital Skills - Digital literacy program (Apply: Year-round)
+- Google Career Certificates - Professional certificate programs (Apply: Year-round)
+- Google for Startups - Startup accelerator program (Apply: Year-round)
+
+**Amazon:**
+- Amazon WOW (Women in Tech hiring program) - Diversity hiring initiative (Apply: Year-round)
+- Amazon Future Engineer Program - Computer science education program (Apply: Year-round)
+- Amazon Propel - Campus hiring program for students (Apply: Aug-Oct)
+- Amazon Alexa Student Skills Challenge - Annual competition (Apply: Sep-Nov)
+- Amazon Software Development Engineer Internship - Summer internship (Apply: Aug-Oct)
+- Amazon ML Summer School - Machine learning program (Apply: Mar-May)
+- Amazon Pathways - Operations and logistics internship (Apply: Year-round)
+- Amazon Veterans Technical Apprenticeship - Military transition program (Apply: Year-round)
+- Amazon Student Programs - Various student opportunities (Apply: Year-round)
+- Amazon Web Services (AWS) Internship - Cloud computing internship (Apply: Aug-Oct)
+
+**Microsoft:**
+- Microsoft Engage - Internship program for students (Apply: Aug-Oct)
+- Microsoft Global Hackathon - Internal innovation event (Apply: Jul-Aug)
+- Microsoft Imagine Cup - Global student technology competition (Apply: Oct-Dec)
+- Microsoft Learn Student Ambassadors - Campus program (Apply: Year-round)
+- Microsoft New Technologists Program - Early career program (Apply: Year-round)
+- Microsoft Software Engineer Internship - Summer technical internship (Apply: Aug-Oct)
+- Microsoft Garage - Innovation program (Apply: Year-round)
+- Microsoft LEAP - Career re-entry program (Apply: Year-round)
+- Microsoft Disability Answer Desk - Accessibility program (Apply: Year-round)
+- Microsoft AI for Good - Social impact program (Apply: Year-round)
+
+**Meta/Facebook:**
+- Meta University - Internship program for underrepresented students (Apply: Jan-Mar)
+- Facebook Hacker Cup - Annual programming contest (Apply: Jul-Sep)
+- Facebook Developer Circles - Community program (Apply: Year-round)
+- Meta AI Residency Program - Research program (Apply: Oct-Dec)
+- Meta Software Engineer Internship - Summer technical internship (Apply: Aug-Oct)
+- Meta Rotation Program - New grad program (Apply: Aug-Oct)
+- Meta Production Engineering Internship - Infrastructure internship (Apply: Aug-Oct)
+- Meta Data Science Internship - Analytics internship (Apply: Aug-Oct)
+- Meta Above & Beyond - Diversity program (Apply: Year-round)
+- Meta Open Source - Open source contribution program (Apply: Year-round)
+
+**Apple:**
+- Apple WWDC Scholarship - Student scholarship for developer conference (Apply: Mar-Apr)
+- Apple Swift Student Challenge - Annual coding challenge (Apply: Feb-Mar)
+- Apple Pathways Alliance - Diversity and inclusion program (Apply: Year-round)
+- Apple Software Engineer Internship - Summer technical internship (Apply: Aug-Oct)
+- Apple Hardware Engineering Internship - Hardware internship (Apply: Aug-Oct)
+- Apple Machine Learning Internship - AI/ML internship (Apply: Aug-Oct)
+- Apple App Store Connect - Developer program (Apply: Year-round)
+- Apple Entrepreneur Camp - Startup program (Apply: Year-round)
+- Apple Community Education Initiative - Education program (Apply: Year-round)
+- Apple Developer Academy - iOS development program (Apply: Year-round)
+
+**Netflix:**
+- Netflix UCAN Program - Underrepresented communities program (Apply: Year-round)
+- Netflix Technical Internship - Summer internship program (Apply: Aug-Oct)
+- Netflix Data Science Internship - Analytics internship (Apply: Aug-Oct)
+- Netflix Content Engineering Internship - Media technology internship (Apply: Aug-Oct)
+- Netflix Fund for Creative Equity - Diversity initiative (Apply: Year-round)
+- Netflix Documentary Talent Development - Film program (Apply: Year-round)
+- Netflix Global TV - International content program (Apply: Year-round)
+
+**Goldman Sachs:**
+- Goldman Sachs Engineering Campus Hiring - Campus recruitment program (Apply: Aug-Oct)
+- Goldman Sachs Marquee Developer Program - API developer program (Apply: Year-round)
+- Goldman Sachs Summer Analyst Program - Investment banking internship (Apply: Aug-Oct)
+- Goldman Sachs Engineering Essentials - Women in tech program (Apply: Year-round)
+- Goldman Sachs 10,000 Women - Entrepreneurship program (Apply: Year-round)
+- Goldman Sachs Marcus by Goldman Sachs - Fintech program (Apply: Year-round)
+
+**TCS:**
+- TCS CodeVita - Global programming contest (Apply: Aug-Oct)
+- TCS NQT (National Qualifier Test) - Hiring assessment (Apply: Year-round)
+- TCS Digital - Digital transformation program (Apply: Year-round)
+- TCS Xplore - Entry-level program (Apply: Year-round)
+- TCS Academic Interface Program - Research collaboration (Apply: Year-round)
+- TCS BPS - Business process services program (Apply: Year-round)
+
+**Flipkart:**
+- Flipkart GRiD (Graduate Recruitment for Innovation and Development) - National tech challenge (Apply: Jun-Aug)
+- Flipkart Runway - Campus hiring program (Apply: Aug-Oct)
+- Flipkart Leap - Women returners program (Apply: Year-round)
+- Flipkart Launchpad - Startup program (Apply: Year-round)
+- Flipkart Samarth - Digital commerce program (Apply: Year-round)
+
+**Uber:**
+- Uber HackTag - Coding challenge (Apply: Sep-Nov)
+- Uber University - Campus recruitment program (Apply: Aug-Oct)
+- Uber Career Prep - Technical interview preparation (Apply: Year-round)
+- Uber Elevate - Innovation program (Apply: Year-round)
+- Uber for Business - B2B program (Apply: Year-round)
+
+**Zomato:**
+- Zomato25 - Campus hiring program (Apply: Aug-Oct)
+- Zomato Hyperpure - B2B program (Apply: Year-round)
+- Zomato for Enterprise - Corporate program (Apply: Year-round)
+
+**Swiggy:**
+- Swiggy Step Up - Internship program (Apply: Aug-Oct)
+- Swiggy Instamart - Quick commerce program (Apply: Year-round)
+- Swiggy Access - Accessibility program (Apply: Year-round)
+
+**Razorpay:**
+- Razorpay FTX - Campus hiring initiative (Apply: Aug-Oct)
+- Razorpay Rize - Women in tech program (Apply: Year-round)
+- Razorpay Capital - Fintech program (Apply: Year-round)
+
+**Additional Companies:**
+**Infosys:**
+- Infosys InStep - Global internship program (Apply: Year-round)
+- Infosys Mysore Training - Technical training program (Apply: Year-round)
+- Infosys Wingspan - Learning platform (Apply: Year-round)
+
+**Wipro:**
+- Wipro WILP - Work Integrated Learning Program (Apply: Year-round)
+- Wipro Talent Next - Campus hiring program (Apply: Aug-Oct)
+- Wipro Holmes - AI program (Apply: Year-round)
+
+**Accenture:**
+- Accenture Apprenticeship Program - Learn and earn program (Apply: Year-round)
+- Accenture Innovation Centers - Innovation program (Apply: Year-round)
+- Accenture Liquid Studios - Digital innovation program (Apply: Year-round)
+
+**Capgemini:**
+- Capgemini Accelerated Solutions Environment - Innovation program (Apply: Year-round)
+- Capgemini Invent - Digital innovation program (Apply: Year-round)
+
+**Deloitte:**
+- Deloitte University - Learning program (Apply: Year-round)
+- Deloitte Digital - Digital transformation program (Apply: Year-round)
+
+**Salesforce:**
+- Salesforce Trailhead - Learning platform (Apply: Year-round)
+- Salesforce Ohana - Community program (Apply: Year-round)
+- Salesforce Futureforce - University recruiting program (Apply: Aug-Oct)
+
+**IBM:**
+- IBM SkillsBuild - Education program (Apply: Year-round)
+- IBM New Collar - Alternative pathway program (Apply: Year-round)
+- IBM Quantum Network - Quantum computing program (Apply: Year-round)
+
+**PayPal:**
+- PayPal University - Campus recruitment program (Apply: Aug-Oct)
+- PayPal Opportunity Hack - Social impact hackathon (Apply: Year-round)
+
+**Adobe:**
+- Adobe Digital Academy - Creative program (Apply: Year-round)
+- Adobe Creative Residency - Artist program (Apply: Year-round)
+- Adobe Research - Research program (Apply: Year-round)
+
+**Nvidia:**
+- Nvidia Inception - AI startup program (Apply: Year-round)
+- Nvidia Deep Learning Institute - AI education program (Apply: Year-round)
+
+**Intel:**
+- Intel Student Ambassador Program - Campus program (Apply: Year-round)
+- Intel AI for Youth - AI education program (Apply: Year-round)
+
+**Qualcomm:**
+- Qualcomm Thinkabit Lab - STEM education program (Apply: Year-round)
+- Qualcomm Qcare - Community program (Apply: Year-round)
+
+Each relatedProgram should include:
+- Program name
+- Short description (what it is)
+- Who it's for (eligibleFor criteria as an array of strings, e.g., ["Students", "Undergraduates", "Final year students"])
+- Application months/window
+- Link to learn more (if available)
+- What it leads to (internship, PPO, FTE, etc.)
+- Program type (Internship/Challenge/Hiring Program/Campus Program)
+
+**IMPORTANT**: The eligibleFor field must always be an array of strings, even if there's only one criterion.
+
+**IMPORTANT**: Only include relatedPrograms for companies that actually run such programs. Do not include this field for general mode or unknown companies.
 
 **MINIMUM QUESTION COUNT REQUIREMENT**: Must provide at least 12 questions, preferably 15 questions for comprehensive company-specific preparation.
 
@@ -452,10 +699,93 @@ Always return the output in this JSON format:
   "tip": "Preparation strategy tip",
   "applicationTimeline": "Timeline if known",
   "preparationTimeEstimate": "Time estimate",
-  "sourceNote": "These questions were gathered from [specific sources like LeetCode company-tag, Glassdoor reviews, GFG interview experiences]"
+  "sourceNote": "These questions were gathered from [specific sources like LeetCode company-tag, Glassdoor reviews, GFG interview experiences]",
+  "relatedPrograms": [
+    {
+      "name": "Program Name",
+      "description": "Brief description of the program",
+      "eligibleFor": ["Students", "Undergraduates", "Final year students"],
+      "applyWindow": "Application period",
+      "outcome": "What it leads to",
+      "link": "https://program-url.com",
+      "type": "Internship/Challenge/Hiring Program/Campus Program"
+    }
+  ]
 }
 
 **CRITICAL REQUIREMENT**: The "questions" array MUST contain at least 12 questions, preferably 15 questions for comprehensive preparation.
+
+**ENHANCED PROGRAM DISCOVERY TRAINING**:
+
+🔍 **INTELLIGENT PROGRAM RESEARCH**: For any company mentioned, you should:
+1. **Activate Knowledge Base**: Access all known information about the company's hiring practices, internship programs, and career initiatives
+2. **Pattern Recognition**: Identify what types of programs companies of this size/industry typically offer
+3. **Comprehensive Search**: Look for both well-known and lesser-known programs
+4. **Current Awareness**: Prioritize recently launched or currently active programs
+5. **Diversity Coverage**: Include programs for different demographics and career stages
+6. **Multiple Program Types**: Cover internships, challenges, hiring programs, community initiatives, and research opportunities
+
+🧠 **DYNAMIC LEARNING APPROACH**: 
+- **Context Clues**: Use the company name to infer likely program types
+- **Industry Analysis**: Consider what similar companies offer and adapt to this specific company
+- **Size Scaling**: Adjust program scope based on company size (startup vs. enterprise)
+- **Geographic Considerations**: Include global programs and region-specific opportunities
+- **Temporal Awareness**: Consider seasonal programs and year-round opportunities
+
+🎯 **PROGRAM COMPLETENESS CHECKLIST**:
+For each company, ensure you include:
+- [ ] At least 5-8 different programs
+- [ ] Mix of technical and non-technical opportunities
+- [ ] Programs for different career stages (students, new grads, experienced)
+- [ ] Diversity and inclusion initiatives
+- [ ] Competitive programs (challenges, contests)
+- [ ] Community and ambassador programs
+- [ ] Research and innovation programs
+- [ ] Partnership and collaboration programs
+- [ ] Current application timelines
+- [ ] Clear eligibility criteria
+
+🚀 **FALLBACK INTELLIGENCE**: If specific programs are unknown:
+- Research common program types for the industry
+- Suggest checking official company resources
+- Mention standard program categories they likely offer
+- Provide discovery strategies for finding hidden opportunities
+- Include generic advice for program research
+
+**CRITICAL INSTRUCTION**: Every company-specific response should demonstrate deep research into available programs. This comprehensive program discovery is a core value proposition of your service.
+
+**IMPORTANT DATA FORMAT REQUIREMENTS**:
+- The "eligibleFor" field in relatedPrograms MUST be an array of strings, never a single string
+- Example: "eligibleFor": ["Students", "Undergraduates", "Final year students"] ✓
+- NOT: "eligibleFor": "Students, Undergraduates, Final year students" ✗
+
+**COMPREHENSIVE PROGRAM COVERAGE REQUIREMENTS**:
+- **MINIMUM PROGRAMS**: Include at least 5-8 different programs for major tech companies
+- **PROGRAM DIVERSITY**: Cover different types of opportunities (internships, challenges, hiring programs, community programs)
+- **CURRENT RELEVANCE**: Focus on programs that are actively running or have recent application cycles
+- **DETAILED INFORMATION**: Each program should have complete information including application windows, eligibility, and outcomes
+- **VERIFICATION**: Base information on official sources, company announcements, and verified community reports
+
+**DYNAMIC RESEARCH INTELLIGENCE**:
+When encountering a company, use your knowledge base to:
+1. **Identify Company Type**: Determine if it's a tech giant, startup, consulting firm, or traditional company
+2. **Research Similar Programs**: Look for patterns in similar companies' offerings
+3. **Include Industry Standards**: Add common program types that companies of this size typically offer
+4. **Suggest Discovery Methods**: Provide ways for users to find additional opportunities
+5. **Current Event Awareness**: Consider recent hiring trends and market conditions
+
+**PROGRAM DISCOVERY FRAMEWORK**:
+For each company, systematically include:
+- **Primary Programs**: Main internship and hiring programs
+- **Diversity Initiatives**: Programs targeting underrepresented groups
+- **Technical Challenges**: Coding competitions and hackathons
+- **Research Opportunities**: Academic partnerships and research programs
+- **Community Building**: Developer communities and ambassador programs
+- **Innovation Labs**: Internal innovation and entrepreneurship programs
+- **Partnership Programs**: Third-party collaborations and joint initiatives
+- **Regional Programs**: Location-specific opportunities
+- **Seasonal Programs**: Summer internships, winter programs, etc.
+- **Continuous Programs**: Year-round and rolling admission opportunities
 
 ANSWER QUALITY REQUIREMENTS:
 - Technical answers: Must be 200-300+ words with code examples, architecture diagrams description, performance considerations, and alternative approaches
@@ -470,10 +800,118 @@ STRICT SEPARATION REQUIREMENTS:
 
 **QUESTION COUNT VALIDATION**: Before returning the response, ensure the questions array has at least 12 questions. If less than 12, add more relevant questions to reach the minimum count.
 
+**REAL-TIME PROGRAM INTELLIGENCE SYSTEM**:
+
+🌐 **COMPREHENSIVE COMPANY RESEARCH**: When a company is mentioned, activate advanced research protocols:
+
+1. **PRIMARY PROGRAM DISCOVERY**:
+   - Search for official internship programs (Summer, Fall, Spring, Year-round)
+   - Identify campus recruitment initiatives
+   - Find coding challenges and technical competitions
+   - Locate diversity and inclusion programs
+   - Discover research partnerships and academic collaborations
+
+2. **SECONDARY PROGRAM IDENTIFICATION**:
+   - Community programs and developer networks
+   - Innovation labs and internal entrepreneurship programs
+   - Third-party partnerships and joint ventures
+   - Regional and location-specific opportunities
+   - Industry-specific programs and certifications
+
+3. **CURRENT PROGRAM STATUS**:
+   - Verify program activity status (active, suspended, seasonal)
+   - Check recent application cycles and deadlines
+   - Identify newly launched programs from 2024-2025
+   - Note program changes or updates
+   - Consider post-pandemic adaptations (virtual/hybrid programs)
+
+4. **PROGRAM INTELLIGENCE FRAMEWORK**:
+   - **Large Tech Companies (Google, Amazon, Microsoft, Meta, Apple)**: Expect 8-12 diverse programs
+   - **Mid-size Tech Companies (Netflix, Uber, Airbnb, Spotify)**: Expect 5-8 programs
+   - **Consulting Firms (McKinsey, Deloitte, Accenture)**: Expect 4-6 programs
+   - **Financial Services (Goldman Sachs, JPMorgan, Morgan Stanley)**: Expect 3-5 programs
+   - **Indian Companies (TCS, Infosys, Wipro, Flipkart)**: Expect 6-10 programs
+   - **Startups and Smaller Companies**: Expect 2-4 programs, focus on core opportunities
+
+5. **ENHANCED PROGRAM DETAILS**:
+   - **Application Process**: Online applications, coding tests, interviews
+   - **Timeline Specificity**: Exact months for applications (e.g., "Apply: August-October")
+   - **Eligibility Details**: Academic requirements, skill prerequisites, demographic criteria
+   - **Program Outcomes**: Conversion rates, full-time offers, certification benefits
+   - **Compensation**: Stipends, benefits, learning opportunities
+   - **Location Options**: Remote, hybrid, on-site, global locations
+
+6. **INTELLIGENT PROGRAM MATCHING**:
+   - Match programs to user's profile and interests
+   - Suggest most relevant programs based on role and experience level
+   - Highlight programs with higher acceptance rates or better outcomes
+   - Recommend programs that align with career goals
+
+**DYNAMIC RESEARCH ACTIVATION**: For each company query, automatically:
+- Activate comprehensive program knowledge
+- Cross-reference with industry standards
+- Verify program currency and availability
+- Provide detailed, actionable information
+- Include discovery strategies for additional opportunities
+
 Generate interview preparation content for a ${role} position${company ? ` at ${company}` : ''}.`;
   
   if (mode === 'company-specific') {
-    promptBase += ` Focus on ${company}'s specific interview process, requirements, and culture. 
+    promptBase += `    Focus on ${company}'s specific interview process, requirements, and culture. 
+    
+    **🔍 ACTIVATE COMPREHENSIVE PROGRAM INTELLIGENCE FOR ${company}**:
+    
+    **MANDATORY PROGRAM RESEARCH**: You must include ALL available programs for ${company}, including:
+    1. **Well-known Programs**: Traditional internships and major hiring initiatives
+    2. **Hidden Gems**: Lesser-known programs that might not be widely advertised
+    3. **Recent Launches**: New programs introduced in 2024-2025
+    4. **Seasonal Programs**: Programs with specific application windows
+    5. **Diversity Programs**: Initiatives targeting underrepresented groups
+    6. **Research Programs**: Academic partnerships and research opportunities
+    7. **Community Programs**: Developer communities and ambassador roles
+    8. **Innovation Programs**: Internal innovation labs and entrepreneurship initiatives
+    9. **Partnership Programs**: Third-party collaborations and joint ventures
+    10. **Regional Programs**: Location-specific opportunities
+    
+    **RESEARCH METHODOLOGY**: For ${company}, systematically search for:
+    - Official career pages and program listings
+    - LinkedIn company updates and job postings
+    - University partnership announcements
+    - Tech community discussions and forums
+    - Recent news articles and press releases
+    - Alumni networks and experience sharing
+    - Third-party aggregator platforms
+    - Industry reports and surveys
+    
+    **PROGRAM DISCOVERY INTELLIGENCE**: Based on ${company}'s profile:
+    - Company size and industry position
+    - Historical hiring patterns and preferences
+    - Recent business developments and expansions
+    - Technology stack and skill requirements
+    - Geographic presence and global operations
+    - Diversity and inclusion commitments
+    - Innovation focus and R&D investments
+    
+    **COMPETITIVE BENCHMARKING**: Compare ${company}'s programs with:
+    - Direct competitors in the same space
+    - Companies of similar size and scale
+    - Industry leaders and best practices
+    - Emerging trends in tech hiring
+    - Standard program offerings across the industry
+    
+    **PROACTIVE PROGRAM SUGGESTIONS**: If specific programs are unknown:
+    - Research what similar companies typically offer
+    - Suggest checking ${company}'s official resources
+    - Mention standard program types they likely have
+    - Provide discovery strategies for finding opportunities
+    - Include generic advice for uncovering hidden programs
+    
+    **CURRENT INTELLIGENCE PRIORITY**: Focus on programs that are:
+    - Currently accepting applications
+    - Have recent application cycles (2024-2025)
+    - Are actively mentioned in company communications
+    - Have been recently updated or expanded
+    - Are available in multiple locations or formats
     
     CRITICAL: Only include questions that have been ACTUALLY ASKED at ${company}. Sources to reference:
     - ${company} LeetCode company tag: https://leetcode.com/company/${company?.toLowerCase()}/
@@ -832,6 +1270,54 @@ YouTube Channels:
 - "Gaurav Sen" - https://www.youtube.com/c/GauravSensei
 - "TechLead" - https://www.youtube.com/c/TechLead
 
+EXAMPLES OF COMPANY-SPECIFIC RELATED PROGRAMS:
+
+Here are real examples of programs you should include for major companies:
+
+**Amazon:**
+- Amazon WOW (Women-only hiring program for SDE roles)
+- Amazon Future Engineer (Student program for computer science)
+- Amazon Propel (Campus hiring program)
+
+**Google:**
+- Google STEP (Student Training in Engineering Program)
+- Google Summer of Code (Open source program)
+- Google Code-in (Contest for pre-university students)
+
+**Microsoft:**
+- Microsoft Engage (Internship program for students)
+- Microsoft Learn Student Ambassadors (Campus program)
+- Microsoft Imagine Cup (Global student technology competition)
+
+**Flipkart:**
+- Flipkart GRiD (National tech challenge for students)
+- Flipkart Runway (Campus hiring program)
+
+**Meta/Facebook:**
+- Meta University (Internship program)
+- Facebook Hacker Cup (Annual programming contest)
+
+**TCS:**
+- TCS CodeVita (Global programming contest)
+- TCS NQT (National Qualifier Test)
+
+**Goldman Sachs:**
+- Goldman Sachs Engineering Campus Hiring
+- Goldman Sachs Marquee Developer Program
+
+**Uber:**
+- Uber HackTag (Coding challenge)
+- Uber University (Campus recruitment)
+
+**Zomato:**
+- Zomato25 (Campus hiring program)
+
+**Swiggy:**
+- Swiggy Step Up (Internship program)
+
+**Razorpay:**
+- Razorpay FTX (Campus hiring initiative)
+
 EXAMPLES OF VERIFIED COMPANY-SPECIFIC QUESTIONS:
 
 ${mode === 'company-specific' ? `
@@ -1037,7 +1523,52 @@ async function fetchInterviewPrepFromGroq(prompt: string): Promise<InterviewPrep
         messages: [
           {
             role: 'system',
-            content: 'You are an AI assistant specialized in generating relevant interview questions and high-quality suggested answers for various job roles. Your responses should be specific, concise, and focused on real interview scenarios for the requested role. When generating DSA questions, include clear problem statements, expected inputs/outputs, and detailed algorithm explanations with code samples. Output must be in valid JSON format exactly as specified in the prompt.'
+            content: `You are an advanced AI career assistant with deep knowledge of internship programs, hiring initiatives, and career opportunities across tech companies. Your primary expertise includes:
+
+1. **COMPREHENSIVE INTERNSHIP DATABASE**: You have access to the most current information about internship programs, coding challenges, campus recruitment drives, and career development initiatives across all major tech companies (Google, Amazon, Microsoft, Meta, Apple, Netflix, Goldman Sachs, TCS, Flipkart, Uber, Zomato, Swiggy, Razorpay, Infosys, Wipro, Accenture, Capgemini, Deloitte, Salesforce, IBM, PayPal, Adobe, Nvidia, Intel, Qualcomm, and many others).
+
+2. **DYNAMIC PROGRAM DISCOVERY**: When a user mentions a specific company, you should:
+   - Identify ALL active internship programs for that company
+   - Include application timelines, eligibility criteria, and program outcomes
+   - Cover both technical and non-technical programs
+   - Include diversity and inclusion initiatives
+   - Mention both summer internships and year-round programs
+   - Include coding challenges, hackathons, and competitions
+   - Cover research programs, fellowships, and special initiatives
+
+3. **REAL-TIME PROGRAM INTELLIGENCE**: You understand that internship programs evolve, so you should:
+   - Prioritize the most current and active programs
+   - Include both established programs and newly launched initiatives
+   - Mention seasonal programs with their typical application windows
+   - Include both direct company programs and third-party collaborations
+   - Cover global programs as well as region-specific opportunities
+
+4. **PROGRAM CATEGORIZATION**: You can classify programs into:
+   - Summer Internships (traditional 10-12 week programs)
+   - Year-round Internships (rolling admissions)
+   - Coding Challenges & Competitions (skill-based contests)
+   - Campus Hiring Programs (university recruitment)
+   - Diversity & Inclusion Programs (targeted initiatives)
+   - Research Programs & Fellowships (advanced studies)
+   - Early Career Programs (new grad opportunities)
+   - Community Programs (developer communities, ambassadorships)
+
+5. **COMPREHENSIVE COVERAGE**: For each company, you should aim to include:
+   - 5-10 different programs when available
+   - Both technical and business-focused opportunities
+   - Programs for different career stages (students, new grads, career changers)
+   - Both competitive and open-application programs
+   - Internal innovation programs and external partnerships
+
+6. **INTELLIGENT FALLBACK**: If you don't have specific information about a company's programs, you should:
+   - Research common types of programs that similar companies offer
+   - Suggest checking the company's career page and social media
+   - Mention industry-standard program types they might have
+   - Recommend third-party platforms where such opportunities are posted
+
+**CRITICAL INSTRUCTION**: Always provide the most comprehensive and up-to-date information about internship programs for the specified company. If the user asks about a specific company, treat it as a priority to include ALL relevant programs, not just the most well-known ones.
+
+Your responses should be specific, concise, and focused on real interview scenarios for the requested role. When generating DSA questions, include clear problem statements, expected inputs/outputs, and detailed algorithm explanations with code samples. Output must be in valid JSON format exactly as specified in the prompt.`
           },
           {
             role: 'user',
@@ -1114,7 +1645,8 @@ function createFallbackResponse(content: string): InterviewPrepResponse {
     difficulty: 'Medium',
     tip: 'Practice regularly and focus on understanding concepts rather than memorizing answers.',
     preparationTimeEstimate: '2-4 weeks',
-    sourceNote: 'Fallback response - please regenerate for verified questions from trusted sources'
+    sourceNote: 'Fallback response - please regenerate for verified questions from trusted sources',
+    relatedPrograms: []
   };
 }
 
