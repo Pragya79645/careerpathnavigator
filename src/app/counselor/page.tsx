@@ -22,6 +22,20 @@ import {
   Star,
   Clock,
   Trash2,
+  Wind,
+  Timer,
+  Heart,
+  Brain,
+  Activity,
+  Coffee,
+  BookOpen,
+  Target,
+  Battery,
+  Smile,
+  ExternalLink,
+  Play,
+  Headphones,
+  Smartphone,
 } from "lucide-react"
 import { getAuth, onAuthStateChanged } from "firebase/auth"
 import { 
@@ -62,6 +76,8 @@ export default function CareerCounselor() {
   const [question, setQuestion] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [chatHistory, setChatHistory] = useState<{ role: string; content: string }[]>([])
+  const [wellnessSuggestions, setWellnessSuggestions] = useState<any[]>([])
+  const [showWellnessSuggestions, setShowWellnessSuggestions] = useState(false)
   const [archivedChats, setArchivedChats] = useState<
     { id: string; date: Date; preview: string; messages: { role: string; content: string }[] }[]
   >([])
@@ -141,6 +157,12 @@ export default function CareerCounselor() {
       // Add AI response to chat history
       setChatHistory([...updatedHistory, { role: "assistant", content: data.response }])
 
+      // Update wellness suggestions if provided
+      if (data.wellnessSuggestions && data.wellnessSuggestions.length > 0) {
+        setWellnessSuggestions(data.wellnessSuggestions)
+        setShowWellnessSuggestions(true)
+      }
+
       setQuestion("")
     } catch (error) {
       console.error("Error fetching career advice:", error)
@@ -201,6 +223,8 @@ export default function CareerCounselor() {
     // Clear current chat
     setChatHistory([])
     setQuestion("")
+    setWellnessSuggestions([])
+    setShowWellnessSuggestions(false)
   }
 
   async function deleteChat(chatId: string, e: React.MouseEvent) {
@@ -231,6 +255,8 @@ export default function CareerCounselor() {
 
       // Restore the selected chat
       setChatHistory(chatToRestore.messages)
+      setWellnessSuggestions([])
+      setShowWellnessSuggestions(false)
 
       // Remove from archived chats only if user is not signed in
       // For signed-in users, we keep it in both places
@@ -322,6 +348,55 @@ export default function CareerCounselor() {
     return formattedContent
   }
 
+  // Helper function to get icon component by name
+  const getIconComponent = (iconName: string) => {
+    const icons: { [key: string]: any } = {
+      Wind,
+      Timer,
+      Heart,
+      Brain,
+      Activity,
+      Coffee,
+      BookOpen,
+      Target,
+      Battery,
+      Smile,
+      Sparkles,
+      Lightbulb,
+      Zap,
+      BarChart,
+      TrendingUp,
+      default: Sparkles
+    }
+    return icons[iconName] || icons.default
+  }
+
+  // Helper function to get color classes
+  const getColorClasses = (color: string) => {
+    const colorMap: { [key: string]: { bg: string; border: string; text: string; icon: string } } = {
+      blue: { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', icon: 'text-blue-600' },
+      green: { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700', icon: 'text-green-600' },
+      purple: { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700', icon: 'text-purple-600' },
+      teal: { bg: 'bg-teal-50', border: 'border-teal-200', text: 'text-teal-700', icon: 'text-teal-600' },
+      amber: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', icon: 'text-amber-600' },
+      pink: { bg: 'bg-pink-50', border: 'border-pink-200', text: 'text-pink-700', icon: 'text-pink-600' },
+      orange: { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', icon: 'text-orange-600' },
+      red: { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', icon: 'text-red-600' },
+      indigo: { bg: 'bg-indigo-50', border: 'border-indigo-200', text: 'text-indigo-700', icon: 'text-indigo-600' },
+      cyan: { bg: 'bg-cyan-50', border: 'border-cyan-200', text: 'text-cyan-700', icon: 'text-cyan-600' },
+      yellow: { bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-700', icon: 'text-yellow-600' },
+      emerald: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', icon: 'text-emerald-600' },
+      rose: { bg: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-700', icon: 'text-rose-600' },
+      default: { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700', icon: 'text-purple-600' }
+    }
+    return colorMap[color] || colorMap.default
+  }
+
+  // Function to dismiss wellness suggestions
+  const dismissWellnessSuggestions = () => {
+    setShowWellnessSuggestions(false)
+  }
+
   // Add custom scrollbar styles
   const customScrollbarStyles = `
   .custom-scrollbar::-webkit-scrollbar {
@@ -368,6 +443,15 @@ export default function CareerCounselor() {
           
           {/* Desktop Menu */}
           <div className="hidden md:flex items-center space-x-3">
+            {wellnessSuggestions.length > 0 && (
+              <button
+                onClick={() => setShowWellnessSuggestions(!showWellnessSuggestions)}
+                className="bg-green-500/20 hover:bg-green-600/30 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-all backdrop-blur-sm border border-white/10"
+              >
+                <Sparkles className="h-4 w-4" />
+                <span>Wellness Tips</span>
+              </button>
+            )}
             <button
               onClick={archiveAndClearChat}
               className="bg-teal-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-all backdrop-blur-sm border border-white/10"
@@ -415,6 +499,18 @@ export default function CareerCounselor() {
               <Archive className="h-4 w-4" />
               <span>Archives</span>
             </button>
+            {wellnessSuggestions.length > 0 && (
+              <button
+                onClick={() => {
+                  setShowWellnessSuggestions(!showWellnessSuggestions);
+                  setMobileMenuOpen(false);
+                }}
+                className="bg-green-500/20 hover:bg-green-600/30 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-all"
+              >
+                <Sparkles className="h-4 w-4" />
+                <span>Wellness Tips</span>
+              </button>
+            )}
           </div>
         )}
       </header>
@@ -507,6 +603,216 @@ export default function CareerCounselor() {
           </div>
         </div>
 
+        {/* Wellness Suggestions Section */}
+        {showWellnessSuggestions && wellnessSuggestions.length > 0 && (
+          <div className="bg-gradient-to-br from-green-50 to-teal-50 rounded-xl shadow-lg p-6 mb-6 border border-green-100 relative">
+            <div className="absolute top-4 right-4">
+              <button
+                onClick={dismissWellnessSuggestions}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="flex items-center mb-4">
+              <div className="bg-gradient-to-r from-green-500 to-teal-500 p-2 rounded-lg mr-4">
+                <Sparkles className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-800">Wellness Boost</h3>
+                <p className="text-gray-600 text-sm">Quick suggestions to enhance your well-being</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {wellnessSuggestions.map((suggestion, index) => {
+                const IconComponent = getIconComponent(suggestion.icon)
+                const colors = getColorClasses(suggestion.color)
+                
+                return (
+                  <div
+                    key={suggestion.id}
+                    className={`${colors.bg} ${colors.border} border rounded-lg p-4 transition-all hover:shadow-md`}
+                  >
+                    <div className="flex items-start">
+                      <div className={`${colors.icon} mr-3 mt-1`}>
+                        <IconComponent className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1">
+                        {/* Empathy Message */}
+                        {suggestion.empathyMessage && (
+                          <div className="mb-3 p-2 bg-white/50 rounded-lg border-l-4 border-blue-400">
+                            <p className="text-sm text-blue-700 font-medium italic">
+                              💝 {suggestion.empathyMessage}
+                            </p>
+                          </div>
+                        )}
+                        
+                        <h4 className={`font-semibold ${colors.text} mb-1`}>
+                          {suggestion.title}
+                        </h4>
+                        <p className="text-gray-600 text-sm mb-2 leading-relaxed">
+                          {suggestion.description}
+                        </p>
+                        
+                        {/* Tags */}
+                        {suggestion.tags && suggestion.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mb-2">
+                            {suggestion.tags.map((tag: string, tagIndex: number) => (
+                              <span
+                                key={tagIndex}
+                                className={`text-xs px-2 py-1 rounded-full ${colors.text} bg-white/60 font-medium`}
+                              >
+                                #{tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        
+                        <div className="flex items-center justify-between">
+                          <span className={`text-xs ${colors.text} font-medium px-2 py-1 rounded-full bg-white/50`}>
+                            {suggestion.duration}
+                          </span>
+                          <button
+                            onClick={() => {
+                              console.log('Wellness suggestion clicked:', suggestion.type)
+                            }}
+                            className={`text-xs ${colors.text} hover:underline font-medium`}
+                          >
+                            Try it now →
+                          </button>
+                        </div>
+                        <div className="mt-3 p-3 bg-white/30 rounded-lg">
+                          <p className="text-xs text-gray-700 leading-relaxed mb-2">
+                            <strong>Action:</strong> {suggestion.action}
+                          </p>
+                          
+                          {/* Resources Section */}
+                          {suggestion.resources && (
+                            <div className="mt-3 space-y-2">
+                              {suggestion.resources.youtube && (
+                                <div className="flex items-center text-xs text-gray-600">
+                                  <Play className="h-3 w-3 mr-1 text-red-500" />
+                                  <a 
+                                    href={suggestion.resources.youtube}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="hover:underline flex items-center"
+                                  >
+                                    Watch tutorial video
+                                    <ExternalLink className="h-3 w-3 ml-1" />
+                                  </a>
+                                </div>
+                              )}
+                              
+                              {suggestion.resources.sounds && (
+                                <div className="flex items-center text-xs text-gray-600">
+                                  <Headphones className="h-3 w-3 mr-1 text-blue-500" />
+                                  <span>Listen to: {suggestion.resources.sounds}</span>
+                                </div>
+                              )}
+                              
+                              {suggestion.resources.apps && (
+                                <div className="flex items-center text-xs text-gray-600">
+                                  <Smartphone className="h-3 w-3 mr-1 text-green-500" />
+                                  <span>Try apps: {suggestion.resources.apps}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="mt-4 text-center">
+              <button
+                onClick={dismissWellnessSuggestions}
+                className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                Dismiss suggestions
+              </button>
+            </div>
+            
+            {/* Quick Resources Section */}
+            <div className="mt-6 pt-4 border-t border-green-200">
+              <h4 className="text-sm font-semibold text-gray-700 mb-3">Quick Wellness Resources</h4>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <a
+                  href="https://www.youtube.com/watch?v=inpok4MKVLM"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center p-3 bg-white/50 rounded-lg hover:bg-white/70 transition-colors text-xs text-gray-600"
+                >
+                  <Play className="h-3 w-3 mr-2 text-blue-500" />
+                  5-Min Meditation
+                </a>
+                <a
+                  href="https://www.youtube.com/watch?v=Ks-_Mh1QhMc"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center p-3 bg-white/50 rounded-lg hover:bg-white/70 transition-colors text-xs text-gray-600"
+                >
+                  <Heart className="h-3 w-3 mr-2 text-pink-500" />
+                  You Are Enough
+                </a>
+                <a
+                  href="https://www.youtube.com/watch?v=RqcOCBb4arc"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center p-3 bg-white/50 rounded-lg hover:bg-white/70 transition-colors text-xs text-gray-600"
+                >
+                  <Activity className="h-3 w-3 mr-2 text-teal-500" />
+                  Work-Life Balance
+                </a>
+                <a
+                  href="https://www.youtube.com/watch?v=tOAEEDMojRg"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center p-3 bg-white/50 rounded-lg hover:bg-white/70 transition-colors text-xs text-gray-600"
+                >
+                  <Zap className="h-3 w-3 mr-2 text-orange-500" />
+                  Beat Procrastination
+                </a>
+              </div>
+              
+              <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <a
+                  href="https://www.youtube.com/watch?v=WPPPFqsECz0"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center p-3 bg-white/50 rounded-lg hover:bg-white/70 transition-colors text-xs text-gray-600"
+                >
+                  <TrendingUp className="h-3 w-3 mr-2 text-green-500" />
+                  Stop Comparing
+                </a>
+                <a
+                  href="https://www.youtube.com/watch?v=DbDoBzGY3vo"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center p-3 bg-white/50 rounded-lg hover:bg-white/70 transition-colors text-xs text-gray-600"
+                >
+                  <Headphones className="h-3 w-3 mr-2 text-purple-500" />
+                  Burnout Recovery
+                </a>
+                <a
+                  href="https://www.youtube.com/watch?v=YRPh_GaiL8s"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center p-3 bg-white/50 rounded-lg hover:bg-white/70 transition-colors text-xs text-gray-600"
+                >
+                  <Wind className="h-3 w-3 mr-2 text-blue-500" />
+                  Breathing Exercise
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Previous Conversations Section */}
         {archivedChats.length > 0 && (
           <div className="bg-white rounded-xl shadow-lg p-6 mb-6 border border-gray-100">
@@ -593,11 +899,14 @@ export default function CareerCounselor() {
                 { title: "Resume building", icon: <BarChart className="h-4 w-4" /> },
                 { title: "Interview preparation", icon: <MessageSquare className="h-4 w-4" /> },
                 { title: "Skill development", icon: <TrendingUp className="h-4 w-4" /> },
-                { title: "Industry trends", icon: <BarChart className="h-4 w-4" /> },
-                { title: "Salary negotiation", icon: <Zap className="h-4 w-4" /> },
                 { title: "Work-life balance", icon: <Compass className="h-4 w-4" /> },
-                { title: "Entrepreneurship", icon: <Lightbulb className="h-4 w-4" /> },
+                { title: "Stress management", icon: <Heart className="h-4 w-4" /> },
+                { title: "Productivity tips", icon: <Brain className="h-4 w-4" /> },
+                { title: "Focus techniques", icon: <Target className="h-4 w-4" /> },
+                { title: "Career burnout", icon: <Coffee className="h-4 w-4" /> },
+                { title: "Salary negotiation", icon: <Zap className="h-4 w-4" /> },
                 { title: "Remote work", icon: <Briefcase className="h-4 w-4" /> },
+                { title: "Time management", icon: <Clock className="h-4 w-4" /> },
               ].map((topic, index) => (
                 <button
                   key={index}
