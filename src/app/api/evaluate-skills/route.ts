@@ -1,8 +1,78 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 
-// Simple in-memory cache for consistent results
-const evaluationCache = new Map<string, EvaluationResponse>();
+// Enhanced cache with TTL (Time To Live)
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+  ttl: number; // in milliseconds
+}
+
+class TTLCache<T> {
+  private cache = new Map<string, CacheEntry<T>>();
+  
+  set(key: string, value: T, ttlMs: number = 300000) { // Default 5 minutes
+    this.cache.set(key, {
+      data: value,
+      timestamp: Date.now(),
+      ttl: ttlMs
+    });
+  }
+  
+  get(key: string): T | null {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+    
+    if (Date.now() - entry.timestamp > entry.ttl) {
+      this.cache.delete(key);
+      return null;
+    }
+    
+    return entry.data;
+  }
+  
+  has(key: string): boolean {
+    const entry = this.cache.get(key);
+    if (!entry) return false;
+    
+    if (Date.now() - entry.timestamp > entry.ttl) {
+      this.cache.delete(key);
+      return false;
+    }
+    
+    return true;
+  }
+  
+  delete(key: string): boolean {
+    return this.cache.delete(key);
+  }
+  
+  keys() {
+    return this.cache.keys();
+  }
+  
+  get size() {
+    return this.cache.size;
+  }
+  
+  clear() {
+    this.cache.clear();
+  }
+}
+
+// Enhanced caches with TTL
+const evaluationCache = new TTLCache<EvaluationResponse>();
+const githubUserCache = new TTLCache<GitHubUser>();
+const githubReposCache = new TTLCache<GitHubRepo[]>();
+
+// Rate limiting tracker
+interface RateLimitInfo {
+  remaining: number;
+  reset: number;
+  limit: number;
+}
+
+let lastGitHubRateLimit: RateLimitInfo | null = null;
 
 interface GitHubRepo {
   name: string;
@@ -387,162 +457,228 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(evaluationCache.get(cacheHash));
     }
 
-    // Fetch GitHub user data
-    console.log('🔍 Fetching GitHub user data...');
+    // Check cache first for GitHub user data
+    const userCacheKey = `user_${github_username}`;
+    let userData: GitHubUser | null = githubUserCache.get(userCacheKey);
     
-    try {
-      const userResponse = await fetch(`https://api.github.com/users/${github_username}`, {
-        headers: {
-          'User-Agent': 'CareerPathNavigator/1.0',
-          'Accept': 'application/vnd.github.v3+json'
-        }
-      });
+    if (!userData) {
+      console.log('🔍 Fetching GitHub user data...');
       
-      if (!userResponse.ok) {
-        console.log('❌ GitHub user not found:', userResponse.status, userResponse.statusText);
-        
-        // Check if it's a rate limit issue
-        if (userResponse.status === 403) {
-          const rateLimitRemaining = userResponse.headers.get('x-ratelimit-remaining');
-          const rateLimitReset = userResponse.headers.get('x-ratelimit-reset');
-          
-          if (rateLimitRemaining === '0') {
-            const resetTime = rateLimitReset ? new Date(parseInt(rateLimitReset) * 1000).toLocaleString() : 'unknown';
-            return NextResponse.json(
-              { 
-                error: 'GitHub API rate limit exceeded. Please try again later.',
-                details: `Rate limit will reset at ${resetTime}`
-              },
-              { status: 429 }
-            );
+      try {
+        const userResponse = await fetch(`https://api.github.com/users/${github_username}`, {
+          headers: {
+            'User-Agent': 'CareerPathNavigator/1.0',
+            'Accept': 'application/vnd.github.v3+json'
           }
+        });
+        
+        // Update rate limit info
+        const remaining = userResponse.headers.get('x-ratelimit-remaining');
+        const reset = userResponse.headers.get('x-ratelimit-reset');
+        const limit = userResponse.headers.get('x-ratelimit-limit');
+        
+        if (remaining && reset && limit) {
+          lastGitHubRateLimit = {
+            remaining: parseInt(remaining),
+            reset: parseInt(reset),
+            limit: parseInt(limit)
+          };
         }
         
-        return NextResponse.json(
-          { error: 'GitHub user not found' },
-          { status: 404 }
-        );
-      }
-      
-      const userData: GitHubUser = await userResponse.json();
-      console.log('✅ GitHub user data fetched successfully');
+        if (!userResponse.ok) {
+          console.log('❌ GitHub user not found:', userResponse.status, userResponse.statusText);
+          
+          // Check if it's a rate limit issue
+          if (userResponse.status === 403) {
+            const rateLimitRemaining = userResponse.headers.get('x-ratelimit-remaining');
+            const rateLimitReset = userResponse.headers.get('x-ratelimit-reset');
+            
+            if (rateLimitRemaining === '0') {
+              const resetTime = rateLimitReset ? new Date(parseInt(rateLimitReset) * 1000).toLocaleString() : 'unknown';
+              return NextResponse.json(
+                { 
+                  error: 'GitHub API rate limit exceeded. Please try again later.',
+                  details: `Rate limit will reset at ${resetTime}. Please wait and try again.`
+                },
+                { status: 429 }
+              );
+            }
+          }
+          
+          return NextResponse.json(
+            { error: 'GitHub user not found' },
+            { status: 404 }
+          );
+        }
 
-      // Fetch GitHub repositories
-      console.log('🔍 Fetching GitHub repositories...');
-      const reposResponse = await fetch(`https://api.github.com/users/${github_username}/repos?per_page=100&sort=updated`, {
-        headers: {
-          'User-Agent': 'CareerPathNavigator/1.0',
-          'Accept': 'application/vnd.github.v3+json'
-        }
-      });
-      
-      if (!reposResponse.ok) {
-        console.log('❌ Failed to fetch repositories:', reposResponse.status, reposResponse.statusText);
+        userData = await userResponse.json();
         
-        // Check if it's a rate limit issue
-        if (reposResponse.status === 403) {
-          const rateLimitRemaining = reposResponse.headers.get('x-ratelimit-remaining');
-          const rateLimitReset = reposResponse.headers.get('x-ratelimit-reset');
-          
-          if (rateLimitRemaining === '0') {
-            const resetTime = rateLimitReset ? new Date(parseInt(rateLimitReset) * 1000).toLocaleString() : 'unknown';
-            return NextResponse.json(
-              { 
-                error: 'GitHub API rate limit exceeded. Please try again later.',
-                details: `Rate limit will reset at ${resetTime}`
-              },
-              { status: 429 }
-            );
-          }
+        // Cache user data for 10 minutes
+        if (userData) {
+          githubUserCache.set(userCacheKey, userData, 600000);
         }
-        
+        console.log('✅ GitHub user data fetched and cached successfully');
+      } catch (fetchError) {
+        console.error('❌ Error fetching GitHub user data:', fetchError);
         return NextResponse.json(
-          { error: 'Failed to fetch repositories' },
+          { error: 'Failed to fetch GitHub user data' },
           { status: 500 }
         );
       }
+    } else {
+      console.log('✅ Using cached GitHub user data');
+    }
+
+    // Check cache for repositories
+    const reposCacheKey = `repos_${github_username}`;
+    let repos: GitHubRepo[] | null = githubReposCache.get(reposCacheKey);
+    
+    if (!repos) {
+      console.log('🔍 Fetching GitHub repositories...');
       
-      const reposData: GitHubRepo[] = await reposResponse.json();
-      console.log('✅ Fetched', reposData.length, 'repositories');
+      try {
+        const reposResponse = await fetch(`https://api.github.com/users/${github_username}/repos?per_page=100&sort=updated`, {
+          headers: {
+            'User-Agent': 'CareerPathNavigator/1.0',
+            'Accept': 'application/vnd.github.v3+json'
+          }
+        });
+        
+        // Update rate limit info
+        const remaining = reposResponse.headers.get('x-ratelimit-remaining');
+        const reset = reposResponse.headers.get('x-ratelimit-reset');
+        const limit = reposResponse.headers.get('x-ratelimit-limit');
+        
+        if (remaining && reset && limit) {
+          lastGitHubRateLimit = {
+            remaining: parseInt(remaining),
+            reset: parseInt(reset),
+            limit: parseInt(limit)
+          };
+        }
+        
+        if (!reposResponse.ok) {
+          console.log('❌ Failed to fetch repositories:', reposResponse.status, reposResponse.statusText);
+          
+          // Check if it's a rate limit issue
+          if (reposResponse.status === 403) {
+            const rateLimitRemaining = reposResponse.headers.get('x-ratelimit-remaining');
+            const rateLimitReset = reposResponse.headers.get('x-ratelimit-reset');
+            
+            if (rateLimitRemaining === '0') {
+              const resetTime = rateLimitReset ? new Date(parseInt(rateLimitReset) * 1000).toLocaleString() : 'unknown';
+              return NextResponse.json(
+                { 
+                  error: 'GitHub API rate limit exceeded. Please try again later.',
+                  details: `Rate limit will reset at ${resetTime}. Please wait and try again.`
+                },
+                { status: 429 }
+              );
+            }
+          }
+          
+          return NextResponse.json(
+            { error: 'Failed to fetch repositories' },
+            { status: 500 }
+          );
+        }
 
-      // Create a more specific cache key based on repository data
-      const repoSignature = reposData.slice(0, 10).map(r => `${r.name}-${r.updated_at}`).join('|');
-      const specificCacheKey = `${github_username}-${repoSignature}`;
-      const specificCacheHash = crypto.createHash('md5').update(specificCacheKey).digest('hex');
-
-      // Check cache with specific key for better consistency
-      if (evaluationCache.has(specificCacheHash)) {
-        return NextResponse.json(evaluationCache.get(specificCacheHash));
+        repos = await reposResponse.json();
+        
+        // Cache repos for 5 minutes
+        if (repos) {
+          githubReposCache.set(reposCacheKey, repos, 300000);
+        }
+        console.log('✅ GitHub repositories fetched and cached successfully');
+      } catch (fetchError) {
+        console.error('❌ Error fetching GitHub repositories:', fetchError);
+        return NextResponse.json(
+          { error: 'Failed to fetch GitHub repositories' },
+          { status: 500 }
+        );
       }
+    } else {
+      console.log('✅ Using cached GitHub repositories');
+    }
 
-      // Filter frontend-related repositories
-      const frontendLanguages = ['JavaScript', 'TypeScript', 'HTML', 'CSS', 'Vue', 'Svelte'];
-      const frontendKeywords = ['react', 'vue', 'angular', 'next', 'nuxt', 'svelte', 'frontend', 'web', 'ui', 'website', 'app'];
+    // Create a more specific cache key based on repository data
+    const repoSignature = repos ? repos.slice(0, 10).map(r => `${r.name}-${r.updated_at}`).join('|') : '';
+    const specificCacheKey = `${github_username}-${repoSignature}`;
+    const specificCacheHash = crypto.createHash('md5').update(specificCacheKey).digest('hex');
+
+    // Check cache with specific key for better consistency
+    if (evaluationCache.has(specificCacheHash)) {
+      return NextResponse.json(evaluationCache.get(specificCacheHash));
+    }
+
+    // Filter frontend-related repositories
+    const frontendLanguages = ['JavaScript', 'TypeScript', 'HTML', 'CSS', 'Vue', 'Svelte'];
+    const frontendKeywords = ['react', 'vue', 'angular', 'next', 'nuxt', 'svelte', 'frontend', 'web', 'ui', 'website', 'app'];
       
-      const frontendRepos = reposData.filter(repo => {
-        const languageMatch = frontendLanguages.includes(repo.language);
-        const nameMatch = frontendKeywords.some(keyword => 
-          repo.name.toLowerCase().includes(keyword) || 
-          (repo.description && repo.description.toLowerCase().includes(keyword))
-        );
-        const topicsMatch = repo.topics.some(topic => 
-          frontendKeywords.some(keyword => topic.includes(keyword))
-        );
-        return languageMatch || nameMatch || topicsMatch;
-      });
+    const frontendRepos = repos ? repos.filter((repo: GitHubRepo) => {
+      const languageMatch = frontendLanguages.includes(repo.language);
+      const nameMatch = frontendKeywords.some((keyword: string) => 
+        repo.name.toLowerCase().includes(keyword) || 
+        (repo.description && repo.description.toLowerCase().includes(keyword))
+      );
+      const topicsMatch = repo.topics && repo.topics.some((topic: string) => 
+        frontendKeywords.some((keyword: string) => topic.includes(keyword))
+      );
+      return languageMatch || nameMatch || topicsMatch;
+    }) : [];
 
-      // Enhanced project analysis
-      const enhancedProjects: ProjectDetails[] = reposData.map(repo => ({
+    // Enhanced project analysis
+    const enhancedProjects: ProjectDetails[] = repos ? repos.map((repo: GitHubRepo) => ({
+      name: repo.name,
+      description: repo.description || '',
+      language: repo.language || 'Unknown',
+      size_kb: repo.size,
+      stars: repo.stargazers_count,
+      forks: repo.forks_count,
+      topics: repo.topics || [],
+      homepage: repo.homepage || '',
+      created_at: repo.created_at,
+      updated_at: repo.updated_at,
+      is_frontend: frontendRepos.some((fr: GitHubRepo) => fr.name === repo.name),
+      html_url: repo.html_url,
+      complexity_indicators: {
+        has_dependencies: repo.size > 100, // Assume projects >100KB have dependencies
+        has_deployment: !!repo.homepage,
+        has_good_description: (repo.description?.length || 0) > 20,
+        estimated_complexity: repo.size > 500 ? 'High' : repo.size > 100 ? 'Medium' : 'Low' as 'Low' | 'Medium' | 'High'
+      }
+    })) : [];
+
+    const frontendProjectDetails = enhancedProjects.filter(p => p.is_frontend);
+    const otherProjectDetails = enhancedProjects.filter(p => !p.is_frontend);
+
+    // Prepare data for AI analysis
+    const analysisData = {
+      user: {
+        username: userData?.login || '',
+        public_repos: userData?.public_repos || 0,
+        followers: userData?.followers || 0,
+        account_age_days: userData ? Math.floor((Date.now() - new Date(userData.created_at).getTime()) / (1000 * 60 * 60 * 24)) : 0,
+        bio: userData?.bio || '',
+        blog: userData?.blog || '',
+        hireable: userData?.hireable || false
+      },
+      repositories: frontendRepos.map((repo: GitHubRepo) => ({
         name: repo.name,
-        description: repo.description || '',
-        language: repo.language || 'Unknown',
-        size_kb: repo.size,
+        description: repo.description,
+        language: repo.language,
         stars: repo.stargazers_count,
         forks: repo.forks_count,
-        topics: repo.topics || [],
-        homepage: repo.homepage || '',
-        created_at: repo.created_at,
-        updated_at: repo.updated_at,
-        is_frontend: frontendRepos.includes(repo),
-        html_url: repo.html_url,
-        complexity_indicators: {
-          has_dependencies: repo.size > 100, // Assume projects >100KB have dependencies
-          has_deployment: !!repo.homepage,
-          has_good_description: (repo.description?.length || 0) > 20,
-          estimated_complexity: repo.size > 500 ? 'High' : repo.size > 100 ? 'Medium' : 'Low' as 'Low' | 'Medium' | 'High'
-        }
-      }));
-
-      const frontendProjectDetails = enhancedProjects.filter(p => p.is_frontend);
-      const otherProjectDetails = enhancedProjects.filter(p => !p.is_frontend);
-
-      // Prepare data for AI analysis
-      const analysisData = {
-        user: {
-          username: userData.login,
-          public_repos: userData.public_repos,
-          followers: userData.followers,
-          account_age_days: Math.floor((Date.now() - new Date(userData.created_at).getTime()) / (1000 * 60 * 60 * 24)),
-          bio: userData.bio,
-          blog: userData.blog,
-          hireable: userData.hireable
-        },
-        repositories: frontendRepos.map(repo => ({
-          name: repo.name,
-          description: repo.description,
-          language: repo.language,
-          stars: repo.stargazers_count,
-          forks: repo.forks_count,
-          size_kb: repo.size,
-          topics: repo.topics,
-          homepage: repo.homepage,
-          age_days: Math.floor((Date.now() - new Date(repo.created_at).getTime()) / (1000 * 60 * 60 * 24)),
-          last_updated_days: Math.floor((Date.now() - new Date(repo.updated_at).getTime()) / (1000 * 60 * 60 * 24))
-        })),
-        portfolio_url: portfolio_url || userData.blog,
-        claimed_skills: skills_list || '',
-        total_frontend_repos: frontendRepos.length
-      };
+        size_kb: repo.size,
+        topics: repo.topics,
+        homepage: repo.homepage,
+        age_days: Math.floor((Date.now() - new Date(repo.created_at).getTime()) / (1000 * 60 * 60 * 24)),
+        last_updated_days: Math.floor((Date.now() - new Date(repo.updated_at).getTime()) / (1000 * 60 * 60 * 24))
+      })),
+      portfolio_url: portfolio_url || userData?.blog || '',
+      claimed_skills: skills_list || '',
+      total_frontend_repos: frontendRepos.length
+    };
 
       // Create deterministic evaluation using objective scoring
       const deterministicEvaluation = createDeterministicEvaluation(analysisData, frontendProjectDetails);
@@ -691,17 +827,7 @@ Only return JSON. No explanations or additional text.`
       }
 
       return NextResponse.json(evaluation);
-    } catch (fetchError) {
-      console.error('❌ Error fetching GitHub data:', fetchError);
-      return NextResponse.json(
-        { 
-          error: 'Failed to fetch GitHub data',
-          details: fetchError instanceof Error ? fetchError.message : 'Unknown error occurred'
-        },
-        { status: 500 }
-      );
-    }
-
+      
   } catch (error) {
     console.error('❌ Error in skill evaluation:', error);
     

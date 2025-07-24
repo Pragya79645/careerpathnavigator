@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { extractTextFromPDF } from "../../../utils/parsePDF"
 import {
   BarChart,
@@ -17,6 +17,7 @@ import {
   AreaChart,
   Area,
 } from "recharts"
+import Confetti from "react-confetti"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -63,6 +64,9 @@ import {
   Clipboard,
   FileCheck,
   Paperclip,
+  Sparkles,
+  Trophy,
+  PartyPopper,
 } from "lucide-react"
 import { motion } from "framer-motion"
 import { Tooltip as TooltipComponent, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -104,10 +108,12 @@ interface CareerAnalysis {
 }
 
 interface ImprovementScores {
-  content: number
-  format: number
-  impact: number
-  atsCompatibility: number
+  formattingCompatibility: number
+  keywordRelevance: number
+  sectionCompleteness: number
+  quantifiedImpact: number
+  grammarClarity: number
+  lengthDensity: number
 }
 
 interface ImprovementSuggestions {
@@ -167,7 +173,54 @@ const ResumeUpload: React.FC = () => {
   const [skillsData, setSkillsData] = useState<SkillChartData[]>([])
   const [processingStage, setProcessingStage] = useState<number>(0)
   const [expandedRoadmapStep, setExpandedRoadmapStep] = useState<number | null>(null)
+  const [showConfetti, setShowConfetti] = useState(false)
+  const [showCelebrationBadge, setShowCelebrationBadge] = useState(false)
+  const [windowDimensions, setWindowDimensions] = useState({ width: 0, height: 0 })
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Get window dimensions for confetti
+  useEffect(() => {
+    const getWindowDimensions = () => {
+      const { innerWidth: width, innerHeight: height } = window
+      return { width, height }
+    }
+
+    const handleResize = () => {
+      setWindowDimensions(getWindowDimensions())
+    }
+
+    if (typeof window !== 'undefined') {
+      setWindowDimensions(getWindowDimensions())
+      window.addEventListener('resize', handleResize)
+      return () => window.removeEventListener('resize', handleResize)
+    }
+  }, [])
+
+  // Trigger celebration when analysis is complete
+  useEffect(() => {
+    if (analysisResult) {
+      setShowConfetti(true)
+      setShowCelebrationBadge(true)
+      
+      // Stop confetti after 5 seconds
+      const confettiTimer = setTimeout(() => {
+        setShowConfetti(false)
+      }, 5000)
+
+      return () => clearTimeout(confettiTimer)
+    }
+  }, [analysisResult])
+
+  const getMotivationalMessage = (name: string) => {
+    const messages = [
+      `Amazing work, ${name}! Your career journey is about to take off! 🚀`,
+      `Congratulations, ${name}! You're one step closer to your dream career! ✨`,
+      `Fantastic, ${name}! Your resume shows incredible potential! 🌟`,
+      `Outstanding, ${name}! Your career analysis reveals exciting opportunities! 🎯`,
+      `Brilliant, ${name}! You're ready to conquer new professional heights! ⭐`,
+    ]
+    return messages[Math.floor(Math.random() * messages.length)]
+  }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0] || null
@@ -370,20 +423,36 @@ const ResumeUpload: React.FC = () => {
   const getScoreData = () => {
     if (!analysisResult?.improvementSuggestions?.scores) return []
 
-    const { content, format, impact, atsCompatibility } = analysisResult.improvementSuggestions.scores
+    const { formattingCompatibility, keywordRelevance, sectionCompleteness, quantifiedImpact, grammarClarity, lengthDensity } = analysisResult.improvementSuggestions.scores
     return [
-      { category: "Content", score: content },
-      { category: "Format", score: format },
-      { category: "Impact", score: impact },
-      { category: "ATS Compatibility", score: atsCompatibility },
+      { category: "Format", score: formattingCompatibility },
+      { category: "Keywords", score: keywordRelevance },
+      { category: "Sections", score: sectionCompleteness },
+      { category: "Impact", score: quantifiedImpact },
+      { category: "Grammar", score: grammarClarity },
+      { category: "Length", score: lengthDensity },
     ]
   }
 
   const getAverageScore = () => {
     if (!analysisResult?.improvementSuggestions?.scores) return 0
 
-    const { content, format, impact, atsCompatibility } = analysisResult.improvementSuggestions.scores
-    return Math.round((content + format + impact + atsCompatibility) / 4)
+    const { formattingCompatibility, keywordRelevance, sectionCompleteness, quantifiedImpact, grammarClarity, lengthDensity } = analysisResult.improvementSuggestions.scores
+    return Math.round((formattingCompatibility + keywordRelevance + sectionCompleteness + quantifiedImpact + grammarClarity + lengthDensity) / 6)
+  }
+
+  const getScoreColor = (score: number) => {
+    if (score >= 8) return "bg-gradient-to-r from-green-400 to-emerald-500"
+    if (score >= 6) return "bg-gradient-to-r from-yellow-400 to-orange-500"
+    if (score >= 4) return "bg-gradient-to-r from-orange-400 to-red-500"
+    return "bg-gradient-to-r from-red-400 to-red-600"
+  }
+
+  const getScoreBarColor = (score: number) => {
+    if (score >= 8) return "#10b981"
+    if (score >= 6) return "#f59e0b"
+    if (score >= 4) return "#f97316"
+    return "#ef4444"
   }
 
   const getSalaryRangeData = () => {
@@ -578,6 +647,225 @@ const ResumeUpload: React.FC = () => {
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* Confetti Effect */}
+      {showConfetti && (
+        <Confetti
+          width={windowDimensions.width}
+          height={windowDimensions.height}
+          recycle={false}
+          numberOfPieces={300}
+          gravity={0.3}
+        />
+      )}
+
+      {/* Celebration Badge */}
+      {showCelebrationBadge && analysisResult && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.5, y: 50 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ 
+            duration: 0.6, 
+            delay: 0.3,
+            type: "spring",
+            stiffness: 200,
+            damping: 20
+          }}
+          className="mb-8"
+        >
+          <Card className="border-0 shadow-2xl overflow-hidden bg-gradient-to-br from-violet-500 via-purple-500 to-pink-500 relative">
+            {/* Background Pattern */}
+            <div className="absolute inset-0 opacity-20">
+              <div className="absolute inset-0 bg-white/10 bg-[radial-gradient(white_1px,transparent_1px)] bg-[length:20px_20px]"></div>
+            </div>
+            
+            <CardContent className="relative z-10 p-8 text-center text-white">
+              {/* Trophy Icon with Animation */}
+              <motion.div
+                initial={{ rotate: -10, scale: 0.8 }}
+                animate={{ 
+                  rotate: 0, 
+                  scale: 1,
+                  y: [0, -5, 0]
+                }}
+                transition={{ 
+                  duration: 0.5, 
+                  delay: 0.8,
+                  type: "spring",
+                  stiffness: 300,
+                  y: {
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }
+                }}
+                className="inline-flex items-center justify-center w-20 h-20 bg-white/20 rounded-full mb-6 backdrop-blur-sm"
+              >
+                <Trophy className="w-12 h-12 text-yellow-300" />
+              </motion.div>
+
+              {/* Celebration Title */}
+              <motion.h2
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 1 }}
+                className="text-3xl font-bold mb-4 flex items-center justify-center gap-2"
+              >
+                <motion.div
+                  animate={{ 
+                    scale: [1, 1.2, 1],
+                    rotate: [0, 10, 0]
+                  }}
+                  transition={{ 
+                    duration: 1.5, 
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                >
+                  <Sparkles className="w-8 h-8 text-yellow-300" />
+                </motion.div>
+                Congratulations!
+                <motion.div
+                  animate={{ 
+                    scale: [1, 1.2, 1],
+                    rotate: [0, -10, 0]
+                  }}
+                  transition={{ 
+                    duration: 1.5, 
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: 0.5
+                  }}
+                >
+                  <Sparkles className="w-8 h-8 text-yellow-300" />
+                </motion.div>
+              </motion.h2>
+
+              {/* Personalized Message */}
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 1.2 }}
+                className="text-xl mb-4 font-medium"
+              >
+                {getMotivationalMessage(analysisResult.parsed.name || "Career Seeker")}
+              </motion.p>
+
+              {/* Description */}
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 1.4 }}
+                className="text-white/90 mb-6 text-lg"
+              >
+                Your resume has been successfully analyzed! Explore your career insights, improvement suggestions, and personalized roadmap below.
+              </motion.p>
+
+              {/* Action Badges */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 1.6 }}
+                className="flex flex-wrap items-center justify-center gap-3"
+              >
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.3, delay: 1.8 }}
+                  whileHover={{ scale: 1.05 }}
+                >
+                  <Badge className="bg-white/20 hover:bg-white/30 text-white border-white/30 px-4 py-2 text-sm backdrop-blur-sm transition-all cursor-pointer">
+                    <User className="w-4 h-4 mr-2" />
+                    Profile Ready
+                  </Badge>
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.3, delay: 2.0 }}
+                  whileHover={{ scale: 1.05 }}
+                >
+                  <Badge className="bg-white/20 hover:bg-white/30 text-white border-white/30 px-4 py-2 text-sm backdrop-blur-sm transition-all cursor-pointer">
+                    <Target className="w-4 h-4 mr-2" />
+                    Career Paths Found
+                  </Badge>
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.3, delay: 2.2 }}
+                  whileHover={{ scale: 1.05 }}
+                >
+                  <Badge className="bg-white/20 hover:bg-white/30 text-white border-white/30 px-4 py-2 text-sm backdrop-blur-sm transition-all cursor-pointer">
+                    <Zap className="w-4 h-4 mr-2" />
+                    Improvements Identified
+                  </Badge>
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.3, delay: 2.4 }}
+                  whileHover={{ scale: 1.05 }}
+                >
+                  <Badge className="bg-white/20 hover:bg-white/30 text-white border-white/30 px-4 py-2 text-sm backdrop-blur-sm transition-all cursor-pointer">
+                    <TrendingUp className="w-4 h-4 mr-2" />
+                    Industry Insights
+                  </Badge>
+                </motion.div>
+              </motion.div>
+
+              {/* Close Button */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.5, delay: 2 }}
+                className="mt-6"
+              >
+                <Button
+                  variant="outline"
+                  onClick={() => setShowCelebrationBadge(false)}
+                  className="bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm"
+                >
+                  Continue to Analysis
+                  <ChevronRight className="w-4 h-4 ml-2" />
+                </Button>
+              </motion.div>
+
+              {/* Floating Elements */}
+              <motion.div
+                animate={{ 
+                  y: [0, -10, 0],
+                  rotate: [0, 5, 0]
+                }}
+                transition={{ 
+                  duration: 2, 
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+                className="absolute top-4 right-4"
+              >
+                <PartyPopper className="w-6 h-6 text-yellow-300" />
+              </motion.div>
+
+              <motion.div
+                animate={{ 
+                  y: [0, 10, 0],
+                  rotate: [0, -5, 0]
+                }}
+                transition={{ 
+                  duration: 2.5, 
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                  delay: 1
+                }}
+                className="absolute bottom-4 left-4"
+              >
+                <Star className="w-5 h-5 text-yellow-300" />
+              </motion.div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       {analysisResult && (
         <motion.div
@@ -1087,17 +1375,20 @@ const ResumeUpload: React.FC = () => {
                               <CardHeader className="pb-2">
                                 <CardTitle className="text-lg text-green-700 dark:text-green-400 flex items-center">
                                   <FileCheck className="w-5 h-5 mr-2" />
-                                  Overall Assessment
+                                  ATS Compatibility Assessment
                                 </CardTitle>
                               </CardHeader>
                               <CardContent>
                                 <Alert className="bg-white/80 dark:bg-slate-800/80 border-0 shadow-sm">
                                   <Info className="h-4 w-4 text-green-600 dark:text-green-400" />
                                   <AlertTitle className="text-green-700 dark:text-green-400 font-medium">
-                                    Resume Score: {getAverageScore()}/10
+                                    ATS Score: {getAverageScore()}/10
                                   </AlertTitle>
                                   <AlertDescription className="text-slate-700 dark:text-slate-300 mt-2">
                                     {analysisResult.improvementSuggestions.overallAssessment}
+                                  </AlertDescription>
+                                  <AlertDescription className="text-slate-600 dark:text-slate-400 mt-3 text-sm">
+                                    <strong>Scoring based on 6 ATS factors:</strong> Formatting Compatibility, Keyword Relevance, Section Completeness, Quantified Impact, Grammar Clarity, and Length/Density optimization.
                                   </AlertDescription>
                                 </Alert>
                               </CardContent>
@@ -1179,46 +1470,124 @@ const ResumeUpload: React.FC = () => {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.4, delay: 0.3 }}
                           >
-                            <Card className="border-0 shadow-md overflow-hidden bg-white dark:bg-slate-900">
-                              <CardHeader className="pb-2">
-                                <CardTitle className="text-lg text-slate-800 dark:text-slate-200 flex items-center">
-                                  <BarChart2 className="w-5 h-5 mr-2" />
-                                  Effectiveness Score
+                            <Card className="border-0 shadow-md overflow-hidden bg-gradient-to-br from-indigo-50 via-purple-50 to-violet-50 dark:from-indigo-950/30 dark:via-purple-950/30 dark:to-violet-950/30">
+                              <CardHeader className="pb-4">
+                                <CardTitle className="text-lg text-indigo-700 dark:text-indigo-400 flex items-center justify-between">
+                                  <div className="flex items-center">
+                                    <BarChart2 className="w-5 h-5 mr-2" />
+                                    ATS Score
+                                  </div>
+                                  <Badge className="bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300">
+                                    {getAverageScore()}/10
+                                  </Badge>
                                 </CardTitle>
                               </CardHeader>
-                              <CardContent>
-                                <div className="h-[300px] w-full">
+                              <CardContent className="space-y-6">
+                                {/* Overall Score Circle */}
+                                <div className="flex items-center justify-center mb-6">
+                                  <div className="relative">
+                                    <div className="w-24 h-24 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 flex items-center justify-center border-4 border-white dark:border-slate-800 shadow-lg">
+                                      <div className="text-center">
+                                        <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                                          {getAverageScore()}
+                                        </div>
+                                        <div className="text-xs text-slate-500 dark:text-slate-400">out of 10</div>
+                                      </div>
+                                    </div>
+                                    {/* Animated rings */}
+                                    <motion.div
+                                      className="absolute inset-0 rounded-full border-2 border-indigo-300 dark:border-indigo-700"
+                                      animate={{ scale: [1, 1.1, 1] }}
+                                      transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                                    />
+                                    <motion.div
+                                      className="absolute inset-0 rounded-full border border-purple-300 dark:border-purple-700"
+                                      animate={{ scale: [1, 1.2, 1] }}
+                                      transition={{ duration: 2, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Score Breakdown with Progress Bars */}
+                                <div className="space-y-3 px-1">
+                                  {getScoreData().map((item, index) => (
+                                    <motion.div
+                                      key={item.category}
+                                      initial={{ opacity: 0, x: -20 }}
+                                      animate={{ opacity: 1, x: 0 }}
+                                      transition={{ duration: 0.3, delay: 0.4 + index * 0.1 }}
+                                      className="space-y-2"
+                                    >
+                                      <div className="flex items-center justify-between min-h-[20px]">
+                                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300 flex-1 pr-2">
+                                          {item.category}
+                                        </span>
+                                        <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400 flex-shrink-0">
+                                          {item.score}/10
+                                        </span>
+                                      </div>
+                                      <div className="relative">
+                                        <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                          <motion.div
+                                            className={`h-full rounded-full ${getScoreColor(item.score)}`}
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${(item.score / 10) * 100}%` }}
+                                            transition={{ duration: 1, delay: 0.6 + index * 0.1, ease: "easeOut" }}
+                                          />
+                                        </div>
+                                        {/* Score indicator dot */}
+                                        <motion.div
+                                          className={`absolute top-1/2 transform -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-md ${getScoreColor(item.score)}`}
+                                          initial={{ left: 0 }}
+                                          animate={{ left: `calc(${(item.score / 10) * 100}% - 6px)` }}
+                                          transition={{ duration: 1, delay: 0.6 + index * 0.1, ease: "easeOut" }}
+                                        />
+                                      </div>
+                                    </motion.div>
+                                  ))}
+                                </div>
+
+                                {/* Mini Chart */}
+                                <div className="h-[140px] w-full mt-6">
                                   <ResponsiveContainer width="100%" height="100%">
                                     <BarChart
-                                      width={500}
-                                      height={300}
+                                      width={300}
+                                      height={140}
                                       data={getScoreData()}
-                                      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                                      margin={{ top: 5, right: 10, left: 10, bottom: 30 }}
                                     >
-                                      <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
-                                      <XAxis dataKey="category" tick={{ fill: "#94a3b8", fontSize: 12 }} />
-                                      <YAxis domain={[0, 10]} tick={{ fill: "#94a3b8", fontSize: 12 }} />
+                                      <XAxis 
+                                        dataKey="category" 
+                                        tick={{ fill: "#94a3b8", fontSize: 9 }}
+                                        interval={0}
+                                        angle={0}
+                                        textAnchor="middle"
+                                        height={30}
+                                      />
+                                      <YAxis hide />
                                       <Tooltip
                                         contentStyle={{
-                                          backgroundColor: "rgba(255, 255, 255, 0.9)",
+                                          backgroundColor: "rgba(255, 255, 255, 0.95)",
                                           borderRadius: "8px",
                                           border: "none",
-                                          boxShadow:
-                                            "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+                                          boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                                          fontSize: "12px"
                                         }}
                                       />
                                       <Bar
                                         dataKey="score"
-                                        fill="url(#colorGradient)"
-                                        radius={[4, 4, 0, 0]}
-                                        barSize={40}
+                                        radius={[2, 2, 0, 0]}
+                                        barSize={20}
                                       >
-                                        <defs>
-                                          <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="0%" stopColor="#8b5cf6" stopOpacity={1} />
-                                            <stop offset="100%" stopColor="#6366f1" stopOpacity={1} />
-                                          </linearGradient>
-                                        </defs>
+                                        {getScoreData().map((entry, index) => (
+                                          <motion.rect
+                                            key={`cell-${index}`}
+                                            fill={getScoreBarColor(entry.score)}
+                                            initial={{ height: 0 }}
+                                            animate={{ height: "auto" }}
+                                            transition={{ duration: 0.8, delay: 0.2 + index * 0.1 }}
+                                          />
+                                        ))}
                                       </Bar>
                                     </BarChart>
                                   </ResponsiveContainer>
@@ -1237,35 +1606,44 @@ const ResumeUpload: React.FC = () => {
                               <CardHeader className="pb-2">
                                 <CardTitle className="text-lg text-amber-700 dark:text-amber-400 flex items-center">
                                   <Zap className="w-5 h-5 mr-2" />
-                                  Quick Tips
+                                  ATS Quick Tips
+                                  <Badge className="ml-2 bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 text-xs">
+                                    ATS
+                                  </Badge>
                                 </CardTitle>
                               </CardHeader>
                               <CardContent>
-                                <ul className="space-y-2">
-                                  <li className="flex items-start p-2 rounded-md bg-white/60 dark:bg-slate-800/60">
-                                    <ArrowUpRight className="w-4 h-4 mr-2 text-amber-600 dark:text-amber-400 mt-0.5" />
-                                    <span className="text-sm text-slate-700 dark:text-slate-300">
-                                      Use action verbs to start bullet points
-                                    </span>
-                                  </li>
-                                  <li className="flex items-start p-2 rounded-md bg-white/60 dark:bg-slate-800/60">
-                                    <ArrowUpRight className="w-4 h-4 mr-2 text-amber-600 dark:text-amber-400 mt-0.5" />
-                                    <span className="text-sm text-slate-700 dark:text-slate-300">
-                                      Quantify achievements with numbers when possible
-                                    </span>
-                                  </li>
-                                  <li className="flex items-start p-2 rounded-md bg-white/60 dark:bg-slate-800/60">
-                                    <ArrowUpRight className="w-4 h-4 mr-2 text-amber-600 dark:text-amber-400 mt-0.5" />
-                                    <span className="text-sm text-slate-700 dark:text-slate-300">
-                                      Tailor your resume for each job application
-                                    </span>
-                                  </li>
-                                  <li className="flex items-start p-2 rounded-md bg-white/60 dark:bg-slate-800/60">
-                                    <ArrowUpRight className="w-4 h-4 mr-2 text-amber-600 dark:text-amber-400 mt-0.5" />
-                                    <span className="text-sm text-slate-700 dark:text-slate-300">
-                                      Keep formatting consistent throughout
-                                    </span>
-                                  </li>
+                                <ul className="space-y-3">
+                                  {[
+                                    { icon: FileText, text: "Use ATS-compatible formatting", tip: "Avoid tables, columns, graphics - use clean, linear layout" },
+                                    { icon: Target, text: "Include relevant tech keywords", tip: "Add React, JavaScript, Node.js, API, SQL, Python, etc." },
+                                    { icon: User, text: "Include all essential sections", tip: "Summary, Skills, Experience, Projects, Education" },
+                                    { icon: TrendingUp, text: "Quantify your achievements", tip: "Use numbers: 'Increased efficiency by 30%', 'Led team of 5'" },
+                                    { icon: CheckCircle, text: "Write clearly and error-free", tip: "Use action verbs, active voice, consistent tense" },
+                                    { icon: BarChart2, text: "Optimize length and density", tip: "1-2 pages, balanced white space and content" }
+                                  ].map((item, index) => (
+                                    <motion.li
+                                      key={index}
+                                      className="group flex items-start p-3 rounded-lg bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm hover:bg-white/80 dark:hover:bg-slate-800/80 transition-all duration-200 cursor-pointer border border-transparent hover:border-amber-200 dark:hover:border-amber-800"
+                                      initial={{ opacity: 0, x: -10 }}
+                                      animate={{ opacity: 1, x: 0 }}
+                                      transition={{ duration: 0.3, delay: 0.5 + index * 0.1 }}
+                                      whileHover={{ scale: 1.02 }}
+                                    >
+                                      <div className="bg-amber-100 dark:bg-amber-900/30 p-1.5 rounded-full mr-3 mt-0.5 group-hover:bg-amber-200 dark:group-hover:bg-amber-900/50 transition-colors">
+                                        <item.icon className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                                      </div>
+                                      <div className="flex-1">
+                                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1">
+                                          {item.text}
+                                        </span>
+                                        <span className="text-xs text-slate-500 dark:text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                                          {item.tip}
+                                        </span>
+                                      </div>
+                                      <ChevronRight className="w-4 h-4 text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    </motion.li>
+                                  ))}
                                 </ul>
                               </CardContent>
                             </Card>

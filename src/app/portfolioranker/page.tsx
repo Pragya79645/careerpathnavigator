@@ -318,8 +318,10 @@ export default function PortfolioRankerPage() {
     if (selectedProjects.length !== 2) return;
     
     setLoadingComparison(true);
+    setError('');
+    
     try {
-      const response = await fetch('/api/compare-projects', {
+      const response = await makeAPIRequest('/api/compare-projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -329,14 +331,53 @@ export default function PortfolioRankerPage() {
         }),
       });
       
-      if (response.ok) {
-        const result = await response.json();
-        setProjectComparison(result);
-      }
+      const result = await response!.json();
+      setProjectComparison(result);
+      setError(''); // Clear any previous errors
     } catch (err) {
       console.error('Comparison failed:', err);
+      setError(err instanceof Error ? err.message : 'Failed to compare projects');
     } finally {
       setLoadingComparison(false);
+    }
+  };
+
+  // Helper function to handle API requests with retry logic
+  const makeAPIRequest = async (url: string, options: RequestInit, maxRetries = 3) => {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await fetch(url, options);
+        
+        if (response.status === 429) {
+          const errorData = await response.json();
+          const retryAfter = response.headers.get('Retry-After');
+          const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : Math.pow(2, attempt) * 1000;
+          
+          if (attempt === maxRetries) {
+            throw new Error(`Rate limit exceeded. ${errorData.details || 'Please try again later.'}`);
+          }
+          
+          setError(`Rate limited. Retrying in ${Math.ceil(waitTime / 1000)} seconds... (Attempt ${attempt}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          continue;
+        }
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Request failed with status ${response.status}`);
+        }
+        
+        return response;
+      } catch (err) {
+        if (attempt === maxRetries) {
+          throw err;
+        }
+        
+        // Exponential backoff for other errors
+        const waitTime = Math.pow(2, attempt) * 1000;
+        setError(`Request failed. Retrying in ${Math.ceil(waitTime / 1000)} seconds... (Attempt ${attempt}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
     }
   };
 
@@ -347,7 +388,7 @@ export default function PortfolioRankerPage() {
     setError('');
     
     try {
-      const response = await fetch('/api/evaluate-skills', {
+      const response = await makeAPIRequest('/api/evaluate-skills', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -355,13 +396,10 @@ export default function PortfolioRankerPage() {
         body: JSON.stringify(formData),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to evaluate skills');
-      }
-
-      const result = await response.json();
+      const result = await response!.json();
       setEvaluation(result);
       setShowAllProjects(true);
+      setError(''); // Clear any previous errors
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
     } finally {
@@ -831,7 +869,9 @@ export default function PortfolioRankerPage() {
                 {loading ? (
                   <>
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    Analyzing...
+                    <span>
+                      {error.includes('Retrying') ? 'Retrying...' : 'Analyzing...'}
+                    </span>
                   </>
                 ) : (
                   <>
@@ -845,8 +885,33 @@ export default function PortfolioRankerPage() {
 
           {/* Error */}
           {error && (
-            <div className="bg-red-500/20 border border-red-500/50 text-red-200 p-4 rounded-lg mb-8">
-              <strong>Error:</strong> {error}
+            <div className={`p-4 rounded-lg mb-8 border ${
+              error.includes('Rate limit') || error.includes('rate limit')
+                ? 'bg-yellow-500/20 border-yellow-500/50 text-yellow-200'
+                : 'bg-red-500/20 border-red-500/50 text-red-200'
+            }`}>
+              <div className="flex items-start gap-3">
+                {error.includes('Rate limit') || error.includes('rate limit') ? (
+                  <Clock className="w-5 h-5 mt-0.5 text-yellow-400" />
+                ) : (
+                  <AlertCircle className="w-5 h-5 mt-0.5 text-red-400" />
+                )}
+                <div>
+                  <strong>
+                    {error.includes('Rate limit') || error.includes('rate limit') 
+                      ? 'Rate Limit Notice:' 
+                      : 'Error:'
+                    }
+                  </strong>
+                  <p className="mt-1">{error}</p>
+                  {(error.includes('Rate limit') || error.includes('rate limit')) && (
+                    <p className="mt-2 text-sm opacity-90">
+                      💡 Tip: GitHub API has usage limits. This is normal for high-traffic applications. 
+                      The system will automatically retry your request.
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 

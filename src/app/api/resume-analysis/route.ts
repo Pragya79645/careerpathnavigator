@@ -103,30 +103,71 @@ export async function POST(request: Request) {
     const careerAnalysis = JSON.parse(careerAnalysisContent)
     console.log("Successfully generated career analysis")
 
-    // Lastly, generate resume improvement suggestions
+    // Lastly, generate resume improvement suggestions with advanced ATS scoring
     const improvementCompletion = await groq.chat.completions.create({
       model: "llama-3.1-8b-instant",
       messages: [
         {
           role: "system",
           content:
-            "You are a resume improvement expert. Analyze the resume and provide specific suggestions for improvement.",
+            "You are an advanced ATS (Applicant Tracking System) evaluator designed for use in modern hiring pipelines at tech companies like Google, Amazon, and Microsoft. Analyze resumes based on strict machine-readable standards, not human readability.",
         },
         {
           role: "user",
-          content: `Analyze the following resume information and provide specific suggestions for improvement. Include:
-          1. overallAssessment (a string with overall assessment)
-          2. contentImprovements (as an array of specific suggestions)
-          3. formatImprovements (as an array of specific suggestions)
-          4. scores object with effectiveness scores on a scale of 1-10 for: content, format, impact, and atsCompatibility
-          
-          Format your response as a JSON object.
+          content: `You are an advanced Applicant Tracking System (ATS) evaluator. Analyze this resume based on strict ATS scoring factors and score only based on machine-readable standards.
+
+          Evaluate the resume using these 6 core ATS criteria, scored out of 10:
+
+          ### ATS Scoring Criteria:
+
+          1. **Formatting Compatibility** (1-10): 
+             - Avoids tables, columns, graphics, text boxes  
+             - Uses standard headings (Experience, Projects, Skills)  
+             - Clean, linear, left-aligned layout  
+
+          2. **Keyword Relevance** (1-10):   
+             - Contains job-relevant technical keywords (React, JavaScript, APIs, Node.js, Python, SQL, etc.)  
+             - Aligns with software developer roles  
+             - Repetition of key terms in multiple sections  
+
+          3. **Section Completeness** (1-10):  
+             - Includes: Summary/Objective, Skills, Experience, Projects, Education  
+             - Sections clearly labeled and distinct  
+
+          4. **Quantified Impact & Action Verbs** (1-10):   
+             - Uses data-driven statements (e.g., "Increased speed by 40%", "Led team of 5")  
+             - Strong action verbs like built, optimized, deployed, led, developed  
+
+          5. **Grammar & Language Clarity** (1-10): 
+             - No spelling or grammar errors  
+             - Active voice, consistent tense  
+             - Bullet points are concise and clear  
+
+          6. **Length & Density** (1-10):  
+             - Appropriate length (1-2 pages for most roles)
+             - Balanced white space and content density  
+             - Not overcrowded or too sparse
+
+          Provide your response as a JSON object with:
+          1. overallAssessment (string): Brief ATS compatibility assessment
+          2. contentImprovements (array): Specific content suggestions for ATS optimization
+          3. formatImprovements (array): Specific format suggestions for ATS compatibility  
+          4. scores object with these exact fields:
+             - formattingCompatibility: score 1-10 for ATS-parsable format
+             - keywordRelevance: score 1-10 for technical keyword density
+             - sectionCompleteness: score 1-10 for having all required sections
+             - quantifiedImpact: score 1-10 for data-driven statements and action verbs
+             - grammarClarity: score 1-10 for grammar and language quality
+             - lengthDensity: score 1-10 for appropriate length and content density
           
           Resume information:
-          ${JSON.stringify(parsedResumeData, null, 2)}`,
+          ${JSON.stringify(parsedResumeData, null, 2)}
+          
+          Original resume text for formatting analysis:
+          ${resumeText.substring(0, 1500)}`,
         },
       ],
-      temperature: 0.2,
+      temperature: 0.1,
       response_format: { type: "json_object" },
     })
 
