@@ -1088,7 +1088,7 @@ export default function InterviewQuestionsGenerator() {
                 <div className="bg-white border border-gray-200 rounded-lg p-4">
                   <div className="flex items-center gap-2 text-sm text-gray-600">
                     <Sparkles size={16} className="text-purple-400" />
-                    <span>Powered by Groq AI</span>
+                    <span>Powered by Gemini 2.0 Flash</span>
                   </div>
                 </div>
               </div>

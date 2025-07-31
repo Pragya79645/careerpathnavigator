@@ -68,8 +68,8 @@ export async function POST(req: NextRequest) {
   // Additional deployment debugging
   console.log('Deployment environment check:', {
     NODE_ENV: process.env.NODE_ENV,
-    hasApiKey: !!process.env.GROQ_API_KEY,
-    apiKeyPrefix: process.env.GROQ_API_KEY?.substring(0, 8) + '...',
+    hasApiKey: !!process.env.GEMINI_API_KEY,
+    apiKeyPrefix: process.env.GEMINI_API_KEY?.substring(0, 8) + '...',
     platform: process.platform,
     nodeVersion: process.version,
     memoryUsage: process.memoryUsage(),
@@ -102,8 +102,8 @@ export async function POST(req: NextRequest) {
     console.log('API Request received:', { role, questionType, company, mode });
     console.log('Environment check:', {
       NODE_ENV: process.env.NODE_ENV,
-      hasApiKey: !!process.env.GROQ_API_KEY,
-      apiKeyLength: process.env.GROQ_API_KEY?.length,
+      hasApiKey: !!process.env.GEMINI_API_KEY,
+      apiKeyLength: process.env.GEMINI_API_KEY?.length,
       platform: process.platform,
       nodeVersion: process.version
     });
@@ -136,35 +136,35 @@ export async function POST(req: NextRequest) {
 
     // Check if GROQ_API_KEY is available
     console.log('🔑 API Key validation:', {
-      hasApiKey: !!process.env.GROQ_API_KEY,
-      keyLength: process.env.GROQ_API_KEY?.length || 0,
-      keyPrefix: process.env.GROQ_API_KEY?.substring(0, 10) || 'undefined',
-      allEnvKeys: Object.keys(process.env).filter(key => key.includes('GROQ')),
+      hasApiKey: !!process.env.GEMINI_API_KEY,
+      keyLength: process.env.GEMINI_API_KEY?.length || 0,
+      keyPrefix: process.env.GEMINI_API_KEY?.substring(0, 10) || 'undefined',
+      allEnvKeys: Object.keys(process.env).filter(key => key.includes('GEMINI')),
       NODE_ENV: process.env.NODE_ENV
     });
     
     if (!process.env.GROQ_API_KEY) {
-      console.error('❌ GROQ_API_KEY environment variable is not set');
-      console.error('Available environment variables:', Object.keys(process.env).sort());
-      console.error('Environment check:', {
-        NODE_ENV: process.env.NODE_ENV,
-        VERCEL: process.env.VERCEL,
-        NETLIFY: process.env.NETLIFY,
-        CI: process.env.CI,
-        deploymentPlatform: process.env.VERCEL ? 'Vercel' : process.env.NETLIFY ? 'Netlify' : 'Unknown'
-      });
-      
-      return NextResponse.json(
-        { 
-          error: 'Server configuration error: API key not configured',
-          details: 'GROQ_API_KEY environment variable is missing',
-          availableEnvKeys: Object.keys(process.env).filter(key => key.includes('GROQ')),
-          platform: process.env.VERCEL ? 'Vercel' : process.env.NETLIFY ? 'Netlify' : 'Unknown',
-          timestamp: new Date().toISOString()
-        },
-        { status: 500 }
-      );
-    }
+    console.error('❌ GEMINI_API_KEY environment variable is not set');
+    console.error('Available environment variables:', Object.keys(process.env).sort());
+    console.error('Environment check:', {
+      NODE_ENV: process.env.NODE_ENV,
+      VERCEL: process.env.VERCEL,
+      NETLIFY: process.env.NETLIFY,
+      CI: process.env.CI,
+      deploymentPlatform: process.env.VERCEL ? 'Vercel' : process.env.NETLIFY ? 'Netlify' : 'Unknown'
+    });
+    
+    return NextResponse.json(
+      { 
+        error: 'Server configuration error: API key not configured',
+        details: 'GEMINI_API_KEY environment variable is missing',
+        availableEnvKeys: Object.keys(process.env).filter(key => key.includes('GEMINI')),
+        platform: process.env.VERCEL ? 'Vercel' : process.env.NETLIFY ? 'Netlify' : 'Unknown',
+        timestamp: new Date().toISOString()
+      },
+      { status: 500 }
+    );
+  }
 
     console.log('Validation passed, constructing prompt...');
 
@@ -173,10 +173,10 @@ export async function POST(req: NextRequest) {
     
     console.log('Prompt constructed, calling Groq API...');
 
-    // Call the Groq API
-    const response = await fetchInterviewPrepFromGroq(prompt);
+    // Call the Gemini API
+    const response = await fetchInterviewPrepFromGemini(prompt);
     
-    console.log('Groq API response received successfully');
+    console.log('Gemini API response received successfully');
 
     // Ensure the response includes the correct displayMode
     response.displayMode = mode;
@@ -196,7 +196,7 @@ export async function POST(req: NextRequest) {
       });
       
       // Return more specific error messages based on error type
-      if (error.message.includes('GROQ_API_KEY')) {
+      if (error.message.includes('GEMINI_API_KEY')) {
         return NextResponse.json(
           { 
             error: 'API configuration error. Please check server configuration.',
@@ -207,11 +207,11 @@ export async function POST(req: NextRequest) {
         );
       }
       
-      if (error.message.includes('Groq API error')) {
+      if (error.message.includes('Gemini API error')) {
         return NextResponse.json(
           { 
             error: 'External API error. Please try again in a moment.',
-            details: 'Groq API is temporarily unavailable',
+            details: 'Gemini API is temporarily unavailable',
             timestamp: new Date().toISOString()
           },
           { status: 503 }
@@ -1501,103 +1501,54 @@ IMPORTANT: Use these as reference points for the types of questions actually ask
   return promptBase;
 }
 
-async function fetchInterviewPrepFromGroq(prompt: string): Promise<InterviewPrepResponse> {
-  // Get your Groq API key from environment variables
-  const apiKey = process.env.GROQ_API_KEY;
+async function fetchInterviewPrepFromGemini(prompt: string): Promise<InterviewPrepResponse> {
+  // Get your Gemini API key from environment variables
+  const apiKey = process.env.GEMINI_API_KEY;
   
   if (!apiKey) {
-    throw new Error('GROQ_API_KEY environment variable is not set');
+    throw new Error('GEMINI_API_KEY environment variable is not set');
   }
   
-  console.log('Making request to Groq API...');
+  console.log('Making request to Gemini 2.0 Flash API...');
   
   try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama3-70b-8192', // Use appropriate Groq model
-        messages: [
-          {
-            role: 'system',
-            content: `You are an advanced AI career assistant with deep knowledge of internship programs, hiring initiatives, and career opportunities across tech companies. Your primary expertise includes:
-
-1. **COMPREHENSIVE INTERNSHIP DATABASE**: You have access to the most current information about internship programs, coding challenges, campus recruitment drives, and career development initiatives across all major tech companies (Google, Amazon, Microsoft, Meta, Apple, Netflix, Goldman Sachs, TCS, Flipkart, Uber, Zomato, Swiggy, Razorpay, Infosys, Wipro, Accenture, Capgemini, Deloitte, Salesforce, IBM, PayPal, Adobe, Nvidia, Intel, Qualcomm, and many others).
-
-2. **DYNAMIC PROGRAM DISCOVERY**: When a user mentions a specific company, you should:
-   - Identify ALL active internship programs for that company
-   - Include application timelines, eligibility criteria, and program outcomes
-   - Cover both technical and non-technical programs
-   - Include diversity and inclusion initiatives
-   - Mention both summer internships and year-round programs
-   - Include coding challenges, hackathons, and competitions
-   - Cover research programs, fellowships, and special initiatives
-
-3. **REAL-TIME PROGRAM INTELLIGENCE**: You understand that internship programs evolve, so you should:
-   - Prioritize the most current and active programs
-   - Include both established programs and newly launched initiatives
-   - Mention seasonal programs with their typical application windows
-   - Include both direct company programs and third-party collaborations
-   - Cover global programs as well as region-specific opportunities
-
-4. **PROGRAM CATEGORIZATION**: You can classify programs into:
-   - Summer Internships (traditional 10-12 week programs)
-   - Year-round Internships (rolling admissions)
-   - Coding Challenges & Competitions (skill-based contests)
-   - Campus Hiring Programs (university recruitment)
-   - Diversity & Inclusion Programs (targeted initiatives)
-   - Research Programs & Fellowships (advanced studies)
-   - Early Career Programs (new grad opportunities)
-   - Community Programs (developer communities, ambassadorships)
-
-5. **COMPREHENSIVE COVERAGE**: For each company, you should aim to include:
-   - 5-10 different programs when available
-   - Both technical and business-focused opportunities
-   - Programs for different career stages (students, new grads, career changers)
-   - Both competitive and open-application programs
-   - Internal innovation programs and external partnerships
-
-6. **INTELLIGENT FALLBACK**: If you don't have specific information about a company's programs, you should:
-   - Research common types of programs that similar companies offer
-   - Suggest checking the company's career page and social media
-   - Mention industry-standard program types they might have
-   - Recommend third-party platforms where such opportunities are posted
-
-**CRITICAL INSTRUCTION**: Always provide the most comprehensive and up-to-date information about internship programs for the specified company. If the user asks about a specific company, treat it as a priority to include ALL relevant programs, not just the most well-known ones.
-
-Your responses should be specific, concise, and focused on real interview scenarios for the requested role. When generating DSA questions, include clear problem statements, expected inputs/outputs, and detailed algorithm explanations with code samples. Output must be in valid JSON format exactly as specified in the prompt.`
-          },
+        contents: [
           {
             role: 'user',
-            content: prompt
+            parts: [
+              { text: prompt }
+            ]
           }
         ],
-        temperature: 0.7,
-        max_tokens: 8192, // Increased for 12-15 comprehensive questions with detailed answers
-        response_format: { type: "json_object" } // Ensure JSON response
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 8192
+        }
       }),
     });
     
-    console.log('Groq API response status:', response.status);
+    console.log('Gemini API response status:', response.status);
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-      console.error('Groq API error response:', errorData);
-      throw new Error(`Groq API error: ${response.status} - ${JSON.stringify(errorData)}`);
+      console.error('Gemini API error response:', errorData);
+      throw new Error(`Gemini API error: ${response.status} - ${JSON.stringify(errorData)}`);
     }
     
     const data = await response.json();
-    console.log('Groq API response received, parsing content...');
+    console.log('Gemini API response received, parsing content...');
     
-    const content = data.choices[0].message.content;
-    
+    // Gemini returns candidates[0].content.parts[0].text
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     // Parse the JSON response
     try {
       const parsedContent = JSON.parse(content);
-      
       // Validate and return the structured response
       if (parsedContent.mode && parsedContent.role && parsedContent.questionType) {
         console.log('Valid response parsed successfully');
@@ -1614,7 +1565,7 @@ Your responses should be specific, concise, and focused on real interview scenar
       return createFallbackResponse(content);
     }
   } catch (fetchError) {
-    console.error('Network error calling Groq API:', fetchError);
+    console.error('Network error calling Gemini API:', fetchError);
     if (fetchError instanceof Error) {
       throw new Error(`Network error: ${fetchError.message}`);
     }

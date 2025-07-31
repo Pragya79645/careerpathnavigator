@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Initialize Gemini model
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
 
     // Get initial analysis
     const analysisPrompt = createAnalysisPrompt(resumeText, interviewFeedback, testPerformance, targetRole)
