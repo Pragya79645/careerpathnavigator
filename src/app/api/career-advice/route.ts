@@ -1,5 +1,6 @@
 // File: app/api/career-advice/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Define type for incoming messages
 type Message = {
@@ -162,28 +163,13 @@ async function generateWellnessSuggestions(userContext: string, apiKey: string) 
 
     Always match the emotional tone and provide resources that specifically address their current emotional state, not just career advice.`;
 
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'llama3-70b-8192',
-        messages: [
-          { role: 'user', content: wellnessPrompt }
-        ],
-        temperature: 0.8,
-        max_tokens: 1000
-      })
-    });
+    // Initialize Gemini AI
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    if (!response.ok) {
-      return [];
-    }
-
-    const data = await response.json();
-    let aiResponse = data.choices[0].message.content;
+    const result = await model.generateContent(wellnessPrompt);
+    const response = await result.response;
+    let aiResponse = response.text();
 
     // Clean up JSON response
     aiResponse = aiResponse.replace(/```json\n?/g, '').replace(/```\n?/g, '');
@@ -408,11 +394,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get Groq API key from environment variables
-    const apiKey = process.env.GROQ_API_KEY;
+    // Get Gemini API key from environment variables
+    const apiKey = process.env.GEMINI_API_KEY;
     
     if (!apiKey) {
-      console.error('Missing GROQ_API_KEY environment variable');
+      console.error('Missing GEMINI_API_KEY environment variable');
       return NextResponse.json(
         { error: 'API configuration error' },
         { status: 500 }
@@ -458,7 +444,7 @@ export async function POST(req: NextRequest) {
       Current date: ${new Date().toLocaleDateString()}`
     };
 
-    // Prepare the messages array to send to Groq
+    // Prepare the messages array to send to Gemini
     const allMessages = [
       systemMessage,
       ...messages.map((message: Message) => ({
@@ -467,32 +453,18 @@ export async function POST(req: NextRequest) {
       }))
     ];
 
-    // Make request to Groq API
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'llama3-70b-8192',
-        messages: allMessages,
-        temperature: 0.7,
-        max_tokens: 1024
-      })
-    });
+    const conversationHistory = allMessages.map((message: any) => {
+      return `${message.role === 'system' ? 'System' : message.role === 'user' ? 'User' : 'Assistant'}: ${message.content}`;
+    }).join('\n\n');
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Groq API error:', errorData);
-      return NextResponse.json(
-        { error: 'Error from language model API' },
-        { status: response.status }
-      );
-    }
+    // Initialize Gemini AI
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    const data = await response.json();
-    let processedResponse = data.choices[0].message.content;
+    // Make request to Gemini API
+    const result = await model.generateContent(conversationHistory);
+    const response = await result.response;
+    let processedResponse = response.text();
 
     // Ensure list completeness
     const numberedListRegex = /\d+\.\s*$/m;
