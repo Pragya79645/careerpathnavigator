@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Enhanced cache with TTL (Time To Live)
 interface CacheEntry<T> {
@@ -693,116 +694,62 @@ export async function POST(request: NextRequest) {
           throw new Error('GEMINI_API_KEY not configured');
         }
       
-      const geminiResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=' + process.env.GEMINI_API_KEY, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: `You are an expert frontend developer evaluator. Use the provided DETERMINISTIC SCORING as your base evaluation and only make minimal adjustments if absolutely necessary.
+      try {
+        // Initialize Gemini AI
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+        const model = genAI.getGenerativeModel({ 
+          model: "gemini-2.5-flash",
+          systemInstruction: "You are an expert frontend developer evaluator. Use the provided DETERMINISTIC SCORING as your base evaluation and only make minimal adjustments if absolutely necessary. Maintain consistency for the same profile. Only return JSON. No explanations or additional text."
+        });
 
-DETERMINISTIC BASE EVALUATION:
+        const prompt = `DETERMINISTIC BASE EVALUATION:
 ${JSON.stringify(deterministicEvaluation, null, 2)}
 
 GitHub Profile Analysis Data:
 ${JSON.stringify(analysisData, null, 2)}
 
-🎯 IMPORTANT: Use the deterministic scoring as your foundation. Only adjust scores by ±1 point if you find clear evidence that contradicts the base evaluation.
+EVALUATION RULES:
+1. UI Complexity, Styling Mastery, Component Structure, State Management, API Integration, Authentication, Deployment, Code Quality, Accessibility, Testing & Error Handling, Animation & UX Polish, Real-World Use Case, Documentation.
+2. Only adjust scores by ±1 point if clear evidence contradicts the base evaluation.
+3. Skill Levels: 0-15 Beginner, 16-25 Intermediate, 26-35 Industry-Ready, 36-39 Advanced.
 
-📊 EVALUATION RULES (must be followed exactly):
-1. **UI Complexity**: Based on project count and size
-2. **Styling Mastery**: Based on CSS/styling technologies found
-3. **Component Structure**: Based on project architecture indicators
-4. **State Management**: Based on framework usage patterns
-5. **API Integration**: Based on API-related keywords and patterns
-6. **Authentication**: Based on auth-related keywords
-7. **Deployment**: Based on homepage URLs (deployed projects)
-8. **Code Quality**: Based on project structure and naming
-9. **Accessibility**: Based on semantic HTML indicators
-10. **Testing & Error Handling**: Based on test files and error patterns
-11. **Animation & UX Polish**: Based on animation libraries
-12. **Real-World Use Case**: Based on project complexity and utility
-13. **Documentation**: Based on README quality and documentation
+Return the evaluation in the exact same JSON format as the base evaluation.`;
 
-🎯 SKILL LEVEL ASSIGNMENT (FIXED THRESHOLDS):
-- 0-15 → Beginner 🐣
-- 16-25 → Intermediate 🌱  
-- 26-35 → Industry-Ready 🚀
-- 36-39 → Advanced 🧠
-
-OUTPUT FORMAT: Return the deterministic evaluation with minimal changes only if absolutely necessary. Maintain consistency for the same profile.
-
-Only return JSON. No explanations or additional text.`
-            }]
-          }],
+        const result = await model.generateContent({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.1,
             topK: 1,
             topP: 0.1,
             maxOutputTokens: 2048,
-          },
-          safetySettings: [
-            {
-              category: 'HARM_CATEGORY_HARASSMENT',
-              threshold: 'BLOCK_MEDIUM_AND_ABOVE'
-            },
-            {
-              category: 'HARM_CATEGORY_HATE_SPEECH',
-              threshold: 'BLOCK_MEDIUM_AND_ABOVE'
-            },
-            {
-              category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
-              threshold: 'BLOCK_MEDIUM_AND_ABOVE'
-            },
-            {
-              category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
-              threshold: 'BLOCK_MEDIUM_AND_ABOVE'
-            }
-          ]
-        }),
-      });
+            responseMimeType: "application/json"
+          }
+        });
 
-      if (!geminiResponse.ok) {
-        const errorText = await geminiResponse.text();
-        console.error('❌ Gemini API Error:', geminiResponse.status, geminiResponse.statusText, errorText);
-        throw new Error(`Gemini API failed: ${geminiResponse.status} ${geminiResponse.statusText}`);
-      }
+        const aiResponseText = result.response.text();
+        const aiEvaluation = JSON.parse(aiResponseText);
 
-      const geminiResult = await geminiResponse.json();
-      const aiResponseText = geminiResult.candidates[0].content.parts[0].text;
-
-      // Parse the JSON response from Gemini
-      try {
-        // Clean up the response to extract JSON
-        const jsonMatch = aiResponseText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const aiEvaluation = JSON.parse(jsonMatch[0]);
-          // Merge AI evaluation with deterministic base, preferring deterministic scores for consistency
-          evaluation = {
-            ...deterministicEvaluation,
-            ...aiEvaluation,
-            // Always use deterministic scores for consistency
-            score_breakdown: deterministicEvaluation.score_breakdown,
-            total_score: deterministicEvaluation.total_score,
-            skill_level: deterministicEvaluation.skill_level,
-            skill_emoji: deterministicEvaluation.skill_emoji,
-            // Use AI for textual content if available
-            justification: aiEvaluation.justification || deterministicEvaluation.justification,
-            improvement_suggestions: aiEvaluation.improvement_suggestions || deterministicEvaluation.improvement_suggestions,
-            motivation: aiEvaluation.motivation || deterministicEvaluation.motivation,
-            // Add the enhanced project data
-            all_projects: enhancedProjects,
-            frontend_projects: frontendProjectDetails,
-            other_projects: otherProjectDetails
-          };
-        } else {
-          throw new Error('No valid JSON found in AI response');
-        }
+        // Merge AI evaluation with deterministic base
+        evaluation = {
+          ...deterministicEvaluation,
+          ...aiEvaluation,
+          // Always use deterministic scores for consistency
+          score_breakdown: deterministicEvaluation.score_breakdown,
+          total_score: deterministicEvaluation.total_score,
+          skill_level: deterministicEvaluation.skill_level,
+          skill_emoji: deterministicEvaluation.skill_emoji,
+          // Use AI for textual content if available
+          justification: aiEvaluation.justification || deterministicEvaluation.justification,
+          improvement_suggestions: aiEvaluation.improvement_suggestions || deterministicEvaluation.improvement_suggestions,
+          motivation: aiEvaluation.motivation || deterministicEvaluation.motivation,
+          // Add the enhanced project data
+          all_projects: enhancedProjects,
+          frontend_projects: frontendProjectDetails,
+          other_projects: otherProjectDetails
+        };
       } catch (parseError) {
         console.error('❌ Failed to parse AI response:', parseError);
-        throw parseError;
+        throw new Error('No valid JSON found in AI response');
       }
     } catch (aiError) {
       console.warn('⚠️ AI analysis failed, using deterministic evaluation as fallback:', aiError);

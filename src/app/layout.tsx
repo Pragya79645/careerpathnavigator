@@ -8,8 +8,8 @@ import "@/lib/polyfills"
 
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
+import { AuthGuard } from "@/components/AuthGuard"
 
-import { ThemeToggle } from "@/components/theme-toggle"
 import { ThemeProvider } from "next-themes"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -30,17 +30,19 @@ export default function RootLayout({
         <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.6.172/pdf.min.js"></script>
       </head>
       <body className={`${inter.className} `}>
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-          <SidebarProvider>
-            <div className="flex min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
-              <AppSidebar />
-              <div className="flex-1 flex flex-col">
-                <main className="flex-1 p-6 pb-24 md:pb-6 overflow-x-hidden">
-                  {children}
-                </main>
+        <ThemeProvider attribute="class" forcedTheme="light" disableTransitionOnChange>
+          <AuthGuard>
+            <SidebarProvider>
+              <div className="flex min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
+                <AppSidebar />
+                <div className="flex-1 flex flex-col">
+                  <main className="flex-1 p-6 pb-24 md:pb-6 overflow-x-hidden">
+                    {children}
+                  </main>
+                </div>
               </div>
-            </div>
-          </SidebarProvider>
+            </SidebarProvider>
+          </AuthGuard>
         </ThemeProvider>
       </body>
     </html>

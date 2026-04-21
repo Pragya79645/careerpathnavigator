@@ -165,7 +165,7 @@ async function generateWellnessSuggestions(userContext: string, apiKey: string) 
 
     // Initialize Gemini AI
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const result = await model.generateContent(wellnessPrompt);
     const response = await result.response;
@@ -459,7 +459,7 @@ export async function POST(req: NextRequest) {
 
     // Initialize Gemini AI
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     // Make request to Gemini API
     const result = await model.generateContent(conversationHistory);

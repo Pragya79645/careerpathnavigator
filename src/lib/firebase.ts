@@ -1,11 +1,10 @@
-// firebaseConfig.js
-
+// Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { getFirestore } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
+import { getAuth, GoogleAuthProvider } from "firebase/auth";
 
-
+// Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyAxm7qtwA-HnVlbNa0nbvkJ2GVDku38VIQ",
   authDomain: "careerpathnavigator-8783c.firebaseapp.com",
@@ -18,13 +17,16 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-let analytics = null
+
+// Initialize Analytics (only in browser)
+let analytics = null;
 if (typeof window !== "undefined") {
-  analytics = getAnalytics(app)
+  analytics = getAnalytics(app);
 }
 
 // Initialize Firestore and Auth
-const db = getFirestore(app)
-const auth = getAuth(app)
+const db = getFirestore(app);
+const auth = getAuth(app);
+const googleProvider = new GoogleAuthProvider();
 
-export { app, analytics, db, auth }
+export { app, analytics, db, auth, googleProvider };

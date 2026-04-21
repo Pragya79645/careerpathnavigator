@@ -29,7 +29,7 @@ export async function POST(request: Request) {
 
     // Initialize Gemini AI
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     // Create the system prompt
     const systemPrompt = `You are an expert career roadmap assistant with deep knowledge of current industry trends, hiring practices, and technical requirements across major tech companies. Your knowledge is current as of 2025 and includes the latest technologies, frameworks, and industry standards.

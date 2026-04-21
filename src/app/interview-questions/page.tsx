@@ -557,7 +557,7 @@ export default function InterviewQuestionsGenerator() {
         
         // Add timeout to prevent hanging requests
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout
         
         const response = await fetch(apiUrl, {
           method: 'POST',

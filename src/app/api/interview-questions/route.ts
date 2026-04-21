@@ -1,5 +1,5 @@
-// app/api/interview-questions/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // This is the type of our request body
 interface RequestBody {
@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if GROQ_API_KEY is available
+    // Check if GEMINI_API_KEY is available
     console.log('🔑 API Key validation:', {
       hasApiKey: !!process.env.GEMINI_API_KEY,
       keyLength: process.env.GEMINI_API_KEY?.length || 0,
@@ -143,8 +143,8 @@ export async function POST(req: NextRequest) {
       NODE_ENV: process.env.NODE_ENV
     });
     
-    if (!process.env.GROQ_API_KEY) {
-    console.error('❌ GEMINI_API_KEY environment variable is not set');
+    if (!process.env.GEMINI_API_KEY) {
+      console.error('❌ GEMINI_API_KEY environment variable is not set');
     console.error('Available environment variables:', Object.keys(process.env).sort());
     console.error('Environment check:', {
       NODE_ENV: process.env.NODE_ENV,
@@ -171,7 +171,7 @@ export async function POST(req: NextRequest) {
     // Construct the prompt based on the role, question type, company, and mode
     const prompt = constructPrompt(role, questionType, company?.trim(), mode);
     
-    console.log('Prompt constructed, calling Groq API...');
+    console.log('Prompt constructed, calling Gemini API...');
 
     // Call the Gemini API
     const response = await fetchInterviewPrepFromGemini(prompt);
@@ -281,8 +281,8 @@ export async function GET() {
   
   const envDetails = {
     NODE_ENV: process.env.NODE_ENV,
-    hasApiKey: !!process.env.GROQ_API_KEY,
-    apiKeyLength: process.env.GROQ_API_KEY?.length || 0,
+    hasApiKey: !!process.env.GEMINI_API_KEY,
+    apiKeyLength: process.env.GEMINI_API_KEY?.length || 0,
     timestamp: new Date().toISOString(),
     platform: process.platform,
     nodeVersion: process.version,
@@ -299,19 +299,17 @@ export async function GET() {
   
   try {
     return NextResponse.json({ 
-      status: process.env.GROQ_API_KEY ? 'OK' : 'MISSING_API_KEY',
-      timestamp: new Date().toISOString(),
-      hasApiKey: !!process.env.GROQ_API_KEY,
+      hasApiKey: !!process.env.GEMINI_API_KEY,
       nodeEnv: process.env.NODE_ENV || 'development',
       platform: process.platform,
       nodeVersion: process.version,
-      apiKeyStatus: process.env.GROQ_API_KEY ? 'present' : 'missing',
-      apiKeyLength: process.env.GROQ_API_KEY?.length || 0,
+      apiKeyStatus: process.env.GEMINI_API_KEY ? 'present' : 'missing',
+      apiKeyLength: process.env.GEMINI_API_KEY?.length || 0,
       deploymentPlatform: process.env.VERCEL ? 'Vercel' : process.env.NETLIFY ? 'Netlify' : 'Unknown',
-      groqRelatedEnvKeys: Object.keys(process.env).filter(key => key.toLowerCase().includes('groq')),
-      message: process.env.GROQ_API_KEY ? 'API endpoint is accessible' : 'API key not configured',
+      geminiRelatedEnvKeys: Object.keys(process.env).filter(key => key.toLowerCase().includes('gemini')),
+      message: process.env.GEMINI_API_KEY ? 'API endpoint is accessible' : 'API key not configured',
       troubleshooting: {
-        checkEnvVars: 'Verify GROQ_API_KEY is set in your deployment platform',
+        checkEnvVars: 'Verify GEMINI_API_KEY is set in your deployment platform',
         vercel: 'Check Vercel Dashboard > Settings > Environment Variables',
         netlify: 'Check Netlify Dashboard > Site Settings > Environment Variables',
         local: 'Check your .env.local file'
@@ -323,7 +321,7 @@ export async function GET() {
       { 
         status: 'ERROR', 
         timestamp: new Date().toISOString(),      error: error instanceof Error ? error.message : 'Unknown error',
-      hasApiKey: !!process.env.GROQ_API_KEY,
+      hasApiKey: !!process.env.GEMINI_API_KEY,
       nodeEnv: process.env.NODE_ENV || 'development',
       envDetails: envDetails
       },
@@ -1502,74 +1500,48 @@ IMPORTANT: Use these as reference points for the types of questions actually ask
 }
 
 async function fetchInterviewPrepFromGemini(prompt: string): Promise<InterviewPrepResponse> {
-  // Get your Gemini API key from environment variables
   const apiKey = process.env.GEMINI_API_KEY;
-  
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY environment variable is not set');
   }
-  
-  console.log('Making request to Gemini 2.0 Flash API...');
-  
+
   try {
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              { text: prompt }
-            ]
-          }
-        ],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 8192
-        }
-      }),
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-2.5-flash",
+      systemInstruction: "You are an expert interview coach. Return ONLY a valid JSON object matching the requested structure. No markdown formatting, no explanations."
     });
+
+    console.log('Making request to Gemini 2.5 Flash API via SDK...');
+
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 8192,
+        responseMimeType: "application/json"
+      }
+    });
+
+    const content = result.response.text();
     
-    console.log('Gemini API response status:', response.status);
-    
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-      console.error('Gemini API error response:', errorData);
-      throw new Error(`Gemini API error: ${response.status} - ${JSON.stringify(errorData)}`);
-    }
-    
-    const data = await response.json();
-    console.log('Gemini API response received, parsing content...');
-    
-    // Gemini returns candidates[0].content.parts[0].text
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    // Parse the JSON response
     try {
       const parsedContent = JSON.parse(content);
-      // Validate and return the structured response
       if (parsedContent.mode && parsedContent.role && parsedContent.questionType) {
         console.log('Valid response parsed successfully');
         return parsedContent as InterviewPrepResponse;
       } else {
         console.log('Invalid response structure, using fallback');
-        // Fallback to create a structured response
         return createFallbackResponse(content);
       }
     } catch (parseError) {
       console.error('Failed to parse response:', parseError);
-      console.error('Raw content:', content);
-      // Fallback parsing if JSON parse fails
+      console.log('Raw content:', content);
       return createFallbackResponse(content);
     }
-  } catch (fetchError) {
-    console.error('Network error calling Gemini API:', fetchError);
-    if (fetchError instanceof Error) {
-      throw new Error(`Network error: ${fetchError.message}`);
-    }
-    throw new Error('Unknown network error occurred');
+  } catch (error: any) {
+    console.error('Error calling Gemini API SDK:', error);
+    throw new Error(`Gemini API Error: ${error.message}`);
   }
 }
 

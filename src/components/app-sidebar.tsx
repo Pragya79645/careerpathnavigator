@@ -2,43 +2,32 @@
 
 import { 
   Home, 
-  LayoutDashboard, 
   FileText, 
-  Mic, 
-  Map, 
-  LogIn, 
-  Menu, 
-  X, 
-  BookOpen, 
-  Briefcase, 
-  Lightbulb, 
-  Target,
-  MessageSquare,
-  User,
-  Settings,
-  TrendingUp,
-  AlertTriangle,
-  MapPin,
-  Route,
+  LogOut,
   ChevronRight,
   Sparkles,
   Code,
-  Compass
+  Compass,
+  Lightbulb,
+  Target,
+  AlertTriangle,
+  Settings,
+  User as UserIcon,
+  LogIn
 } from "lucide-react"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
 import { useState, useEffect } from "react"
+import { onAuthStateChanged, signOut, User } from "firebase/auth"
+import { auth } from "@/lib/firebase"
 
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar"
@@ -52,12 +41,6 @@ const mainItems = [
     url: "/",
     icon: Home,
     description: "Dashboard overview"
-  },
-  {
-    title: "Dashboard",
-    url: "/dashboard",
-    icon: LayoutDashboard,
-    description: "Career insights"
   },
 ]
 
@@ -86,12 +69,6 @@ const careerItems = [
     icon: Compass,
     description: "Plan your journey"
   },
-  {
-    title: "Roadmap",
-    url: "/roadmap",
-    icon: Map,
-    description: "Visual progress"
-  },
 ]
 
 const jobItems = [
@@ -100,12 +77,6 @@ const jobItems = [
     url: "/company-target",
     icon: Target,
     description: "Find your match"
-  },
-  {
-    title: "Interview Prep",
-    url: "/interview-questions",
-    icon: MessageSquare,
-    description: "Practice questions"
   },
   {
     title: "Failure Analysis",
@@ -122,33 +93,20 @@ const toolItems = [
     icon: Sparkles,
     description: "AI assistant"
   },
- 
   {
     title: "Workflow Manager",
     url: "/WorkflowManager",
     icon: Settings,
     description: "Organize tasks"
   },
-
 ]
 
-const authItems = [
-  {
-    title: "Sign In",
-    url: "/auth",
-    icon: LogIn,
-    description: "Access your account"
-  },
- 
-]
-
-// Mobile bottom nav items (most important)
+// Mobile bottom nav items
 const mobileNavItems = [
   { title: "Home", url: "/", icon: Home },
   { title: "Resume", url: "/resume-analyzer", icon: FileText },
   { title: "Jobs", url: "/company-target", icon: Target },
   { title: "AI Chat", url: "/askGroq", icon: Sparkles },
-  { title: "Profile", url: "/auth", icon: User },
 ]
 
 // Component for rendering menu sections
@@ -168,7 +126,7 @@ const MenuSection = ({ title, items, pathname }: { title: string, items: any[], 
             <div className={`group flex items-center gap-3 rounded-xl px-3 py-3 transition-all duration-200 ${
               pathname === item.url
                 ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/25"
-                : "hover:bg-gray-50 dark:hover:bg-gray-800/50 text-gray-700 dark:text-gray-300 hover:text-indigo-600"
+                : "hover:bg-gray-50 text-gray-700 hover:text-indigo-600"
             }`}>
               <item.icon className={`h-5 w-5 transition-all duration-200 ${
                 pathname === item.url
@@ -201,7 +159,7 @@ const MenuSection = ({ title, items, pathname }: { title: string, items: any[], 
 )
 
 // Mobile Bottom Navigation Component
-const MobileBottomNav = ({ pathname }: { pathname: string }) => {
+const MobileBottomNav = ({ pathname, user }: { pathname: string, user: User | null }) => {
   const [isVisible, setIsVisible] = useState(true)
   const [lastScrollY, setLastScrollY] = useState(0)
 
@@ -211,7 +169,6 @@ const MobileBottomNav = ({ pathname }: { pathname: string }) => {
       setIsVisible(lastScrollY > currentScrollY || currentScrollY < 10)
       setLastScrollY(currentScrollY)
     }
-
     window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
   }, [lastScrollY])
@@ -257,6 +214,24 @@ const MobileBottomNav = ({ pathname }: { pathname: string }) => {
                   </motion.div>
                 </Link>
               ))}
+              <Link href={user ? "#" : "/auth"}>
+                <div 
+                  className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl"
+                  onClick={() => user && signOut(auth)}
+                >
+                  {user ? (
+                    <Avatar className="h-5 w-5">
+                      <AvatarImage src={user.photoURL || ""} />
+                      <AvatarFallback><UserIcon className="h-3 w-3" /></AvatarFallback>
+                    </Avatar>
+                  ) : (
+                    <LogIn className="h-5 w-5 text-gray-600" />
+                  )}
+                  <span className="text-xs font-medium text-gray-600">
+                    {user ? "Exit" : "Auth"}
+                  </span>
+                </div>
+              </Link>
             </div>
           </div>
         </motion.div>
@@ -267,29 +242,44 @@ const MobileBottomNav = ({ pathname }: { pathname: string }) => {
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const router = useRouter()
+  const [user, setUser] = useState<User | null>(null)
   const { toggleSidebar, openMobile, setOpenMobile } = useSidebar()
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser)
+    })
+    return () => unsubscribe()
+  }, [])
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth)
+      router.push("/auth")
+    } catch (error) {
+      console.error("Logout error:", error)
+    }
+  }
 
   return (
     <>
-      {/* Mobile Bottom Navigation */}
-      <MobileBottomNav pathname={pathname} />
+      <MobileBottomNav pathname={pathname} user={user} />
       
-      {/* Desktop Sidebar Toggle */}
       <div className="fixed left-4 top-4 z-50 md:hidden">
-        <SidebarTrigger className="bg-white/90 backdrop-blur-xl border border-gray-200/50 text-gray-700 shadow-lg hover:bg-white/95 hover:shadow-xl transition-all duration-300" />
+        <SidebarTrigger className="bg-white/90 backdrop-blur-xl border border-gray-200/50 text-gray-700 shadow-lg" />
       </div>
 
-      {/* Main Sidebar */}
       <Sidebar
         variant="floating"
-        className="border-r-0 bg-white/80 backdrop-blur-xl dark:bg-gray-950/80 transition-all duration-300 hidden md:flex"
+        className="border-r-0 bg-white/80 backdrop-blur-xl transition-all duration-300 hidden md:flex"
       >
-        <SidebarHeader className="p-6 border-b border-gray-100 dark:border-gray-800">
+        <SidebarHeader className="p-6 border-b border-gray-100">
           <Link href="/" className="flex items-center gap-3 group">
             <div className="relative">
               <Image 
                 src="/logo.jpg" 
-                alt="Career Path Navigator" 
+                alt="Logo" 
                 width={48} 
                 height={48} 
                 className="rounded-2xl shadow-lg group-hover:shadow-xl transition-all duration-300"
@@ -301,7 +291,7 @@ export function AppSidebar() {
                 Career Navigator
               </div>
               <div className="text-xs text-gray-500 font-medium">
-                AI-Powered Career Growth
+                AI-Powered Growth
               </div>
             </div>
           </Link>
@@ -309,20 +299,42 @@ export function AppSidebar() {
 
         <SidebarContent className="px-4 py-6 space-y-2 overflow-y-auto scrollbar-hide">
           <MenuSection title="Overview" items={mainItems} pathname={pathname} />
-          <MenuSection title="Career Development" items={careerItems} pathname={pathname} />
-          <MenuSection title="Job Search" items={jobItems} pathname={pathname} />
-          <MenuSection title="AI Tools" items={toolItems} pathname={pathname} />
-          <MenuSection title="Account" items={authItems} pathname={pathname} />
+          <MenuSection title="Development" items={careerItems} pathname={pathname} />
+          <MenuSection title="Opportunities" items={jobItems} pathname={pathname} />
+          <MenuSection title="AI Power" items={toolItems} pathname={pathname} />
         </SidebarContent>
 
-        <SidebarFooter className="p-6 border-t border-gray-100 dark:border-gray-800">
-          <div className="text-center space-y-2">
-            <div className="bg-gradient-to-r from-indigo-600/80 to-purple-600/80 bg-clip-text text-xs font-semibold text-transparent">
+        <SidebarFooter className="p-6 border-t border-gray-100">
+          {user ? (
+            <div className="flex items-center gap-3 p-3 rounded-2xl bg-gray-50/50 border border-gray-100">
+              <Avatar className="h-10 w-10 border-2 border-white shadow-sm">
+                <AvatarImage src={user.photoURL || ""} />
+                <AvatarFallback>{user.displayName?.charAt(0) || "U"}</AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-gray-800 truncate">
+                  {user.displayName?.split(' ')[0]}
+                </p>
+                <button 
+                  onClick={handleLogout}
+                  className="flex items-center gap-1 text-[10px] font-bold text-red-500 hover:text-red-600 uppercase tracking-wider transition-colors"
+                >
+                  <LogOut size={10} />
+                  Sign Out
+                </button>
+              </div>
+            </div>
+          ) : (
+            <Link href="/auth">
+              <Button className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl shadow-lg hover:shadow-indigo-500/25 transition-all">
+                Sign In
+              </Button>
+            </Link>
+          )}
+          <div className="mt-4 text-center">
+            <p className="text-[10px] text-gray-400 font-medium tracking-tight">
               © 2025 Career Navigator
-            </div>
-            <div className="text-xs text-gray-500">
-              Navigate Your Future with AI
-            </div>
+            </p>
           </div>
         </SidebarFooter>
       </Sidebar>
