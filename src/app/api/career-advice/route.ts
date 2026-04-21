@@ -14,7 +14,7 @@ async function generateWellnessSuggestions(userContext: string, apiKey: string) 
   try {
     const hour = new Date().getHours();
     let timeContext = '';
-    
+
     if (hour < 12) {
       timeContext = 'morning';
     } else if (hour < 17) {
@@ -165,7 +165,7 @@ async function generateWellnessSuggestions(userContext: string, apiKey: string) 
 
     // Initialize Gemini AI
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
     const result = await model.generateContent(wellnessPrompt);
     const response = await result.response;
@@ -173,7 +173,7 @@ async function generateWellnessSuggestions(userContext: string, apiKey: string) 
 
     // Clean up JSON response
     aiResponse = aiResponse.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-    
+
     try {
       const parsed = JSON.parse(aiResponse);
       return parsed.suggestions?.map((suggestion: any, index: number) => ({
@@ -385,7 +385,7 @@ function getFallbackSuggestions() {
 export async function POST(req: NextRequest) {
   try {
     const { messages } = await req.json();
-    
+
     // Validate request data
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json(
@@ -396,7 +396,7 @@ export async function POST(req: NextRequest) {
 
     // Get Gemini API key from environment variables
     const apiKey = process.env.GEMINI_API_KEY;
-    
+
     if (!apiKey) {
       console.error('Missing GEMINI_API_KEY environment variable');
       return NextResponse.json(
@@ -459,7 +459,7 @@ export async function POST(req: NextRequest) {
 
     // Initialize Gemini AI
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
     // Make request to Gemini API
     const result = await model.generateContent(conversationHistory);
@@ -485,9 +485,9 @@ export async function POST(req: NextRequest) {
     // Generate wellness suggestions based on conversation context
     const wellnessSuggestions = await generateWellnessSuggestions(messages[messages.length - 1]?.content || '', apiKey);
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       response: processedResponse,
-      wellnessSuggestions 
+      wellnessSuggestions
     });
   } catch (error) {
     console.error('Server error:', error);

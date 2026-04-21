@@ -698,7 +698,7 @@ export async function POST(request: NextRequest) {
         // Initialize Gemini AI
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
         const model = genAI.getGenerativeModel({ 
-          model: "gemini-2.5-flash",
+          model: "gemini-3-flash-preview",
           systemInstruction: "You are an expert frontend developer evaluator. Use the provided DETERMINISTIC SCORING as your base evaluation and only make minimal adjustments if absolutely necessary. Maintain consistency for the same profile. Only return JSON. No explanations or additional text."
         });
 

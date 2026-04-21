@@ -1508,11 +1508,11 @@ async function fetchInterviewPrepFromGemini(prompt: string): Promise<InterviewPr
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       systemInstruction: "You are an expert interview coach. Return ONLY a valid JSON object matching the requested structure. No markdown formatting, no explanations."
     });
 
-    console.log('Making request to Gemini 2.5 Flash API via SDK...');
+    console.log('Making request to Gemini 3 Flash Preview API via SDK...');
 
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],

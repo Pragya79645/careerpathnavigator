@@ -32,14 +32,14 @@ interface AnalysisResult {
 async function extractTextFromFile(file: File): Promise<string> {
   const buffer = await file.arrayBuffer()
   const text = new TextDecoder().decode(buffer)
-  
+
   // For PDF files, you might want to use a proper PDF parser
   // For now, we'll handle text files and assume PDF text is provided
   if (file.type === 'application/pdf') {
     // In a real implementation, you'd use a PDF parsing library here
     throw new Error('PDF parsing not implemented. Please paste your resume text instead.')
   }
-  
+
   return text
 }
 
@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Initialize Gemini model
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
+    const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' })
 
     // Get initial analysis
     const analysisPrompt = createAnalysisPrompt(resumeText, interviewFeedback, testPerformance, targetRole)
@@ -184,8 +184,8 @@ export async function POST(request: NextRequest) {
 
     // Generate optimized resume
     const optimizedResumePrompt = createOptimizedResumePrompt(
-      resumeText, 
-      targetRole, 
+      resumeText,
+      targetRole,
       analysis.analysis?.resume_issues || []
     )
     const optimizedResult = await model.generateContent(optimizedResumePrompt)
@@ -200,16 +200,16 @@ export async function POST(request: NextRequest) {
       },
       recommendations: Array.isArray(analysis.recommendations) ? analysis.recommendations : [],
       fix_suggestions: {
-        resume_rewrite: typeof analysis.fix_suggestions?.resume_rewrite === 'string' 
-          ? analysis.fix_suggestions.resume_rewrite 
+        resume_rewrite: typeof analysis.fix_suggestions?.resume_rewrite === 'string'
+          ? analysis.fix_suggestions.resume_rewrite
           : typeof analysis.fix_suggestions?.resume_rewrite === 'object' && analysis.fix_suggestions?.resume_rewrite
-          ? JSON.stringify(analysis.fix_suggestions.resume_rewrite, null, 2)
-          : 'No resume improvement suggestions available',
+            ? JSON.stringify(analysis.fix_suggestions.resume_rewrite, null, 2)
+            : 'No resume improvement suggestions available',
         mock_answer_rewrite: typeof analysis.fix_suggestions?.mock_answer_rewrite === 'string'
           ? analysis.fix_suggestions.mock_answer_rewrite
           : typeof analysis.fix_suggestions?.mock_answer_rewrite === 'object' && analysis.fix_suggestions?.mock_answer_rewrite
-          ? JSON.stringify(analysis.fix_suggestions.mock_answer_rewrite, null, 2)
-          : 'No interview answer improvement suggestions available'
+            ? JSON.stringify(analysis.fix_suggestions.mock_answer_rewrite, null, 2)
+            : 'No interview answer improvement suggestions available'
       },
       resources: Array.isArray(analysis.resources) ? analysis.resources : [],
       positive_notes: Array.isArray(analysis.positive_notes) ? analysis.positive_notes : [],

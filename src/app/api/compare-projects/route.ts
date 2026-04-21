@@ -32,13 +32,13 @@ async function analyzeProjectCode(username: string, projectName: string, content
         const packageResponse = await fetch(packageJsonFile.download_url);
         const packageContent = await packageResponse.text();
         codeAnalysis.packageJson = JSON.parse(packageContent);
-        
+
         // Extract technology stack from dependencies
-        const deps = { 
-          ...(codeAnalysis.packageJson?.dependencies || {}), 
-          ...(codeAnalysis.packageJson?.devDependencies || {}) 
+        const deps = {
+          ...(codeAnalysis.packageJson?.dependencies || {}),
+          ...(codeAnalysis.packageJson?.devDependencies || {})
         };
-        
+
         // Frontend frameworks
         if (deps.react) codeAnalysis.technologyStack.frontend.push('React');
         if (deps.vue) codeAnalysis.technologyStack.frontend.push('Vue.js');
@@ -46,43 +46,43 @@ async function analyzeProjectCode(username: string, projectName: string, content
         if (deps.next) codeAnalysis.technologyStack.frontend.push('Next.js');
         if (deps.nuxt) codeAnalysis.technologyStack.frontend.push('Nuxt.js');
         if (deps.svelte) codeAnalysis.technologyStack.frontend.push('Svelte');
-        
+
         // CSS frameworks
         if (deps.tailwindcss) codeAnalysis.technologyStack.frontend.push('Tailwind CSS');
         if (deps.bootstrap) codeAnalysis.technologyStack.frontend.push('Bootstrap');
         if (deps['@mui/material']) codeAnalysis.technologyStack.frontend.push('Material-UI');
-        
+
         // Backend frameworks
         if (deps.express) codeAnalysis.technologyStack.backend.push('Express.js');
         if (deps.fastify) codeAnalysis.technologyStack.backend.push('Fastify');
         if (deps.koa) codeAnalysis.technologyStack.backend.push('Koa.js');
         if (deps.nestjs) codeAnalysis.technologyStack.backend.push('NestJS');
-        
+
         // Databases
         if (deps.mongoose) codeAnalysis.technologyStack.database.push('MongoDB');
         if (deps.pg) codeAnalysis.technologyStack.database.push('PostgreSQL');
         if (deps.mysql2) codeAnalysis.technologyStack.database.push('MySQL');
         if (deps.sqlite3) codeAnalysis.technologyStack.database.push('SQLite');
         if (deps.prisma) codeAnalysis.technologyStack.database.push('Prisma');
-        
+
         // Tools
         if (deps.webpack) codeAnalysis.technologyStack.tools.push('Webpack');
         if (deps.vite) codeAnalysis.technologyStack.tools.push('Vite');
         if (deps.jest) codeAnalysis.technologyStack.tools.push('Jest');
         if (deps.typescript) codeAnalysis.technologyStack.tools.push('TypeScript');
-        
+
       } catch (error) {
         console.error('Error parsing package.json:', error);
       }
     }
 
     // Analyze key files for actual functionality and uniqueness
-    const keyFiles = contents.filter((file: any) => 
-      file.name.endsWith('.js') || 
-      file.name.endsWith('.jsx') || 
-      file.name.endsWith('.ts') || 
-      file.name.endsWith('.tsx') || 
-      file.name.endsWith('.py') || 
+    const keyFiles = contents.filter((file: any) =>
+      file.name.endsWith('.js') ||
+      file.name.endsWith('.jsx') ||
+      file.name.endsWith('.ts') ||
+      file.name.endsWith('.tsx') ||
+      file.name.endsWith('.py') ||
       file.name.endsWith('.java') ||
       file.name === 'README.md' ||
       file.name === 'index.html' ||
@@ -105,10 +105,10 @@ async function analyzeProjectCode(username: string, projectName: string, content
         'index.tsx', 'index.ts', 'App.tsx', 'App.jsx', 'main.tsx',
         'README.md', 'requirements.txt', 'Dockerfile'
       ];
-      
+
       const aIndex = priorityOrder.indexOf(a.name);
       const bIndex = priorityOrder.indexOf(b.name);
-      
+
       if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
       if (aIndex !== -1) return -1;
       if (bIndex !== -1) return 1;
@@ -117,26 +117,26 @@ async function analyzeProjectCode(username: string, projectName: string, content
 
     // Fetch and analyze main files (limit to avoid API rate limits)
     const filesToAnalyze = prioritizedFiles.slice(0, 8);
-    
+
     for (const file of filesToAnalyze) {
       try {
         const fileResponse = await fetch(file.download_url);
         const fileContent = await fileResponse.text();
-        
+
         codeAnalysis.actualCode.push({
           name: file.name,
           content: fileContent.substring(0, 2000), // Limit content size
           size: file.size,
           type: file.name.split('.').pop()
         });
-        
+
         // Analyze code patterns for uniqueness and functionality
-        if (file.name.endsWith('.js') || file.name.endsWith('.jsx') || 
-            file.name.endsWith('.ts') || file.name.endsWith('.tsx')) {
-          
+        if (file.name.endsWith('.js') || file.name.endsWith('.jsx') ||
+          file.name.endsWith('.ts') || file.name.endsWith('.tsx')) {
+
           // Check for advanced patterns and unique implementations
           const codeContent = fileContent.toLowerCase();
-          
+
           // Detect advanced React patterns
           if (codeContent.includes('usecontext') || codeContent.includes('createcontext')) {
             codeAnalysis.technologyStack.frontend.push('React Context API');
@@ -147,7 +147,7 @@ async function analyzeProjectCode(username: string, projectName: string, content
           if (codeContent.includes('usecallback') || codeContent.includes('usememo')) {
             codeAnalysis.technologyStack.frontend.push('React Performance Optimization');
           }
-          
+
           // Detect API patterns
           if (codeContent.includes('fetch(') || codeContent.includes('axios')) {
             codeAnalysis.technologyStack.backend.push('REST API Integration');
@@ -155,7 +155,7 @@ async function analyzeProjectCode(username: string, projectName: string, content
           if (codeContent.includes('graphql') || codeContent.includes('query') || codeContent.includes('mutation')) {
             codeAnalysis.technologyStack.backend.push('GraphQL');
           }
-          
+
           // Detect state management
           if (codeContent.includes('redux') || codeContent.includes('store')) {
             codeAnalysis.technologyStack.frontend.push('Redux State Management');
@@ -163,12 +163,12 @@ async function analyzeProjectCode(username: string, projectName: string, content
           if (codeContent.includes('zustand') || codeContent.includes('jotai')) {
             codeAnalysis.technologyStack.frontend.push('Modern State Management');
           }
-          
+
           // Detect testing patterns
           if (codeContent.includes('test(') || codeContent.includes('it(') || codeContent.includes('describe(')) {
             codeAnalysis.technologyStack.tools.push('Testing Framework');
           }
-          
+
           // Detect unique features from actual code
           if (codeContent.includes('websocket') || codeContent.includes('socket.io')) {
             codeAnalysis.keyFeatures.push('Real-time Communication');
@@ -189,17 +189,17 @@ async function analyzeProjectCode(username: string, projectName: string, content
             codeAnalysis.keyFeatures.push('AI/ML Integration');
           }
         }
-        
+
         // Extract features from README with better pattern matching
         if (file.name === 'README.md') {
           const readmeContent = fileContent.toLowerCase();
-          
+
           // Extract project purpose from README title and description
           const titleMatches = readmeContent.match(/# (.+)/g);
           if (titleMatches && titleMatches.length > 0) {
             codeAnalysis.projectPurpose = titleMatches[0].replace('# ', '').trim();
           }
-          
+
           // Look for project description in common patterns
           const descriptionPatterns = [
             /## about\s*\n([\s\S]*?)(?=\n##|\n#|$)/i,
@@ -207,7 +207,7 @@ async function analyzeProjectCode(username: string, projectName: string, content
             /## overview\s*\n([\s\S]*?)(?=\n##|\n#|$)/i,
             /## what.*is\s*\n([\s\S]*?)(?=\n##|\n#|$)/i
           ];
-          
+
           for (const pattern of descriptionPatterns) {
             const match = readmeContent.match(pattern);
             if (match && !codeAnalysis.projectPurpose) {
@@ -215,7 +215,7 @@ async function analyzeProjectCode(username: string, projectName: string, content
               break;
             }
           }
-          
+
           // Extract features with enhanced patterns
           const featurePatterns = [
             /## features?\s*\n([\s\S]*?)(?=\n##|\n#|$)/i,
@@ -224,18 +224,18 @@ async function analyzeProjectCode(username: string, projectName: string, content
             /## capabilities\s*\n([\s\S]*?)(?=\n##|\n#|$)/i,
             /## key.*features\s*\n([\s\S]*?)(?=\n##|\n#|$)/i
           ];
-          
+
           for (const pattern of featurePatterns) {
             const match = readmeContent.match(pattern);
             if (match) {
-              const features = match[1].split('\n').filter(line => 
+              const features = match[1].split('\n').filter(line =>
                 line.trim().startsWith('-') || line.trim().startsWith('*') || line.trim().startsWith('•')
               ).map(line => line.replace(/^[-*•]\s*/, '').trim()).filter(feature => feature.length > 0);
               codeAnalysis.keyFeatures.push(...features);
               break;
             }
           }
-          
+
           // Extract technology mentions from README
           const techMentions = readmeContent.match(/built with|uses|powered by|technologies?:\s*([\s\S]*?)(?=\n##|\n#|$)/i);
           if (techMentions) {
@@ -257,7 +257,7 @@ async function analyzeProjectCode(username: string, projectName: string, content
 
     // Analyze folder structure for components and API routes
     const folders = contents.filter((item: any) => item.type === 'dir');
-    
+
     for (const folder of folders) {
       if (folder.name === 'components' || folder.name === 'src') {
         try {
@@ -268,7 +268,7 @@ async function analyzeProjectCode(username: string, projectName: string, content
           console.error(`Error fetching folder ${folder.name}:`, error);
         }
       }
-      
+
       if (folder.name === 'api' || folder.name === 'routes') {
         try {
           const folderResponse = await fetch(folder.url);
@@ -517,7 +517,7 @@ export async function POST(request: NextRequest) {
     };
 
     // Call Gemini API for comprehensive comparison
-    const geminiResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + process.env.GEMINI_API_KEY, {
+    const geminiResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=' + process.env.GEMINI_API_KEY, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1089,23 +1089,23 @@ Only return JSON. No explanations or additional text.`
         project1: {
           name: project1,
           purpose_and_vision: codeAnalysis1.projectPurpose || "Project purpose analysis pending - requires deeper code review",
-          unique_value_proposition: codeAnalysis1.keyFeatures.length > 0 ? 
-            `Unique features include: ${codeAnalysis1.keyFeatures.slice(0, 3).join(', ')}` : 
+          unique_value_proposition: codeAnalysis1.keyFeatures.length > 0 ?
+            `Unique features include: ${codeAnalysis1.keyFeatures.slice(0, 3).join(', ')}` :
             "To be determined through comprehensive code analysis",
           technology_stack: {
-            frontend: codeAnalysis1.technologyStack.frontend.length > 0 ? 
-              codeAnalysis1.technologyStack.frontend : 
+            frontend: codeAnalysis1.technologyStack.frontend.length > 0 ?
+              codeAnalysis1.technologyStack.frontend :
               [comparisonData.project1.language || "JavaScript"],
             backend: codeAnalysis1.technologyStack.backend,
             database: codeAnalysis1.technologyStack.database,
             deployment: comparisonData.project1.homepage ? ["Deployed"] : [],
             tools: codeAnalysis1.technologyStack.tools
           },
-          key_features: codeAnalysis1.keyFeatures.length > 0 ? 
-            codeAnalysis1.keyFeatures : 
+          key_features: codeAnalysis1.keyFeatures.length > 0 ?
+            codeAnalysis1.keyFeatures :
             ["Feature analysis pending", "Requires detailed code review"],
-          strengths: codeAnalysis1.technologyStack.frontend.length > 0 ? 
-            [`Uses modern tech stack: ${codeAnalysis1.technologyStack.frontend.join(', ')}`, "Active development", "Good project structure"] : 
+          strengths: codeAnalysis1.technologyStack.frontend.length > 0 ?
+            [`Uses modern tech stack: ${codeAnalysis1.technologyStack.frontend.join(', ')}`, "Active development", "Good project structure"] :
             ["Active development", "Good project structure potential"],
           areas_to_improve: ["Comprehensive code analysis needed", "Detailed functionality review required"],
           market_relevance: {
@@ -1253,23 +1253,23 @@ Only return JSON. No explanations or additional text.`
         project2: {
           name: project2,
           purpose_and_vision: codeAnalysis2.projectPurpose || "Project purpose analysis pending - requires deeper code review",
-          unique_value_proposition: codeAnalysis2.keyFeatures?.length > 0 ? 
-            `Unique features include: ${codeAnalysis2.keyFeatures.slice(0, 3).join(', ')}` : 
+          unique_value_proposition: codeAnalysis2.keyFeatures?.length > 0 ?
+            `Unique features include: ${codeAnalysis2.keyFeatures.slice(0, 3).join(', ')}` :
             "To be determined through comprehensive code analysis",
           technology_stack: {
-            frontend: codeAnalysis2.technologyStack?.frontend?.length > 0 ? 
-              codeAnalysis2.technologyStack.frontend : 
+            frontend: codeAnalysis2.technologyStack?.frontend?.length > 0 ?
+              codeAnalysis2.technologyStack.frontend :
               [comparisonData.project2.language || "JavaScript"],
             backend: codeAnalysis2.technologyStack?.backend || [],
             database: codeAnalysis2.technologyStack?.database || [],
             deployment: comparisonData.project2.homepage ? ["Deployed"] : [],
             tools: codeAnalysis2.technologyStack?.tools || []
           },
-          key_features: codeAnalysis2.keyFeatures?.length > 0 ? 
-            codeAnalysis2.keyFeatures : 
+          key_features: codeAnalysis2.keyFeatures?.length > 0 ?
+            codeAnalysis2.keyFeatures :
             ["Feature analysis pending", "Requires detailed code review"],
-          strengths: codeAnalysis2.technologyStack?.frontend?.length > 0 ? 
-            [`Uses modern tech stack: ${codeAnalysis2.technologyStack.frontend.join(', ')}`, "Active development", "Good project structure"] : 
+          strengths: codeAnalysis2.technologyStack?.frontend?.length > 0 ?
+            [`Uses modern tech stack: ${codeAnalysis2.technologyStack.frontend.join(', ')}`, "Active development", "Good project structure"] :
             ["Active development", "Good project structure potential"],
           areas_to_improve: ["Comprehensive code analysis needed", "Detailed functionality review required"],
           market_relevance: {
@@ -1419,36 +1419,36 @@ Only return JSON. No explanations or additional text.`
             // Smart winner determination based on actual code analysis
             let project1Score = 0;
             let project2Score = 0;
-            
+
             // Score based on technology stack completeness
             project1Score += (codeAnalysis1.technologyStack?.frontend?.length || 0) * 2;
             project1Score += (codeAnalysis1.technologyStack?.backend?.length || 0) * 2;
             project1Score += (codeAnalysis1.technologyStack?.database?.length || 0) * 1;
             project1Score += (codeAnalysis1.technologyStack?.tools?.length || 0) * 1;
-            
+
             project2Score += (codeAnalysis2.technologyStack?.frontend?.length || 0) * 2;
             project2Score += (codeAnalysis2.technologyStack?.backend?.length || 0) * 2;
             project2Score += (codeAnalysis2.technologyStack?.database?.length || 0) * 1;
             project2Score += (codeAnalysis2.technologyStack?.tools?.length || 0) * 1;
-            
+
             // Score based on features and code analysis
             project1Score += (codeAnalysis1.keyFeatures?.length || 0) * 3;
             project1Score += (codeAnalysis1.actualCode?.length || 0) * 2;
             project1Score += codeAnalysis1.projectPurpose ? 5 : 0;
-            
+
             project2Score += (codeAnalysis2.keyFeatures?.length || 0) * 3;
             project2Score += (codeAnalysis2.actualCode?.length || 0) * 2;
             project2Score += codeAnalysis2.projectPurpose ? 5 : 0;
-            
+
             // Score based on GitHub metrics
             project1Score += Math.min(comparisonData.project1.stars || 0, 20);
             project1Score += Math.min(comparisonData.project1.forks || 0, 10);
             project1Score += comparisonData.project1.homepage ? 5 : 0;
-            
+
             project2Score += Math.min(comparisonData.project2.stars || 0, 20);
             project2Score += Math.min(comparisonData.project2.forks || 0, 10);
             project2Score += comparisonData.project2.homepage ? 5 : 0;
-            
+
             return project1Score > project2Score ? project1 : project2;
           })(),
           reasoning: (() => {
@@ -1456,11 +1456,11 @@ Only return JSON. No explanations or additional text.`
             const hasP2Code = codeAnalysis2.actualCode?.length > 0;
             const p1Features = codeAnalysis1.keyFeatures?.length || 0;
             const p2Features = codeAnalysis2.keyFeatures?.length || 0;
-            const p1TechStack = (codeAnalysis1.technologyStack?.frontend?.length || 0) + 
-                              (codeAnalysis1.technologyStack?.backend?.length || 0);
-            const p2TechStack = (codeAnalysis2.technologyStack?.frontend?.length || 0) + 
-                              (codeAnalysis2.technologyStack?.backend?.length || 0);
-            
+            const p1TechStack = (codeAnalysis1.technologyStack?.frontend?.length || 0) +
+              (codeAnalysis1.technologyStack?.backend?.length || 0);
+            const p2TechStack = (codeAnalysis2.technologyStack?.frontend?.length || 0) +
+              (codeAnalysis2.technologyStack?.backend?.length || 0);
+
             if (p1TechStack > p2TechStack && p1Features > p2Features) {
               return `${project1} wins with superior technology stack implementation (${p1TechStack} vs ${p2TechStack} technologies) and more comprehensive feature set (${p1Features} vs ${p2Features} features). The project demonstrates better code organization, more advanced technology adoption, and clearer implementation patterns based on actual code analysis.`;
             } else if (p2TechStack > p1TechStack && p2Features > p1Features) {
@@ -1476,44 +1476,44 @@ Only return JSON. No explanations or additional text.`
           winning_score: (() => {
             const p1Features = codeAnalysis1.keyFeatures?.length || 0;
             const p2Features = codeAnalysis2.keyFeatures?.length || 0;
-            const p1TechStack = (codeAnalysis1.technologyStack?.frontend?.length || 0) + 
-                              (codeAnalysis1.technologyStack?.backend?.length || 0);
-            const p2TechStack = (codeAnalysis2.technologyStack?.frontend?.length || 0) + 
-                              (codeAnalysis2.technologyStack?.backend?.length || 0);
-            
+            const p1TechStack = (codeAnalysis1.technologyStack?.frontend?.length || 0) +
+              (codeAnalysis1.technologyStack?.backend?.length || 0);
+            const p2TechStack = (codeAnalysis2.technologyStack?.frontend?.length || 0) +
+              (codeAnalysis2.technologyStack?.backend?.length || 0);
+
             const baseScore = 60;
             const featureBonus = Math.max(p1Features, p2Features) * 3;
             const techBonus = Math.max(p1TechStack, p2TechStack) * 2;
             const codeBonus = Math.max(codeAnalysis1.actualCode?.length || 0, codeAnalysis2.actualCode?.length || 0) * 2;
-            
+
             return Math.min(baseScore + featureBonus + techBonus + codeBonus, 95);
           })()
         },
         head_to_head_analysis: {
           innovation: {
-            project1_analysis: codeAnalysis1.keyFeatures?.length > 0 ? 
+            project1_analysis: codeAnalysis1.keyFeatures?.length > 0 ?
               `${project1} demonstrates innovation through: ${codeAnalysis1.keyFeatures.slice(0, 3).join(', ')}. Technology stack includes: ${codeAnalysis1.technologyStack?.frontend?.join(', ') || 'Standard frontend'}.` :
               `${project1} shows potential for innovation but requires deeper feature analysis and creative solution evaluation.`,
-            project2_analysis: codeAnalysis2.keyFeatures?.length > 0 ? 
+            project2_analysis: codeAnalysis2.keyFeatures?.length > 0 ?
               `${project2} demonstrates innovation through: ${codeAnalysis2.keyFeatures.slice(0, 3).join(', ')}. Technology stack includes: ${codeAnalysis2.technologyStack?.frontend?.join(', ') || 'Standard frontend'}.` :
               `${project2} shows potential for innovation but requires deeper feature analysis and creative solution evaluation.`,
-            winner: (codeAnalysis1.keyFeatures?.length || 0) > (codeAnalysis2.keyFeatures?.length || 0) ? 
+            winner: (codeAnalysis1.keyFeatures?.length || 0) > (codeAnalysis2.keyFeatures?.length || 0) ?
               `${project1} - Superior innovation with more unique features and creative implementations` :
-              (codeAnalysis2.keyFeatures?.length || 0) > (codeAnalysis1.keyFeatures?.length || 0) ? 
-              `${project2} - Superior innovation with more unique features and creative implementations` :
-              "Tie - Both projects show similar innovation levels"
+              (codeAnalysis2.keyFeatures?.length || 0) > (codeAnalysis1.keyFeatures?.length || 0) ?
+                `${project2} - Superior innovation with more unique features and creative implementations` :
+                "Tie - Both projects show similar innovation levels"
           },
           technical_excellence: {
             project1_analysis: `${project1} technical depth: ${(codeAnalysis1.technologyStack?.frontend?.length || 0) + (codeAnalysis1.technologyStack?.backend?.length || 0)} technologies, ${codeAnalysis1.actualCode?.length || 0} code files analyzed. ${codeAnalysis1.technologyStack?.tools?.length > 0 ? `Uses development tools: ${codeAnalysis1.technologyStack.tools.join(', ')}` : 'Basic tooling setup'}.`,
             project2_analysis: `${project2} technical depth: ${(codeAnalysis2.technologyStack?.frontend?.length || 0) + (codeAnalysis2.technologyStack?.backend?.length || 0)} technologies, ${codeAnalysis2.actualCode?.length || 0} code files analyzed. ${codeAnalysis2.technologyStack?.tools?.length > 0 ? `Uses development tools: ${codeAnalysis2.technologyStack.tools.join(', ')}` : 'Basic tooling setup'}.`,
             winner: (() => {
-              const p1TechCount = (codeAnalysis1.technologyStack?.frontend?.length || 0) + 
-                                (codeAnalysis1.technologyStack?.backend?.length || 0) + 
-                                (codeAnalysis1.technologyStack?.tools?.length || 0);
-              const p2TechCount = (codeAnalysis2.technologyStack?.frontend?.length || 0) + 
-                                (codeAnalysis2.technologyStack?.backend?.length || 0) + 
-                                (codeAnalysis2.technologyStack?.tools?.length || 0);
-              
+              const p1TechCount = (codeAnalysis1.technologyStack?.frontend?.length || 0) +
+                (codeAnalysis1.technologyStack?.backend?.length || 0) +
+                (codeAnalysis1.technologyStack?.tools?.length || 0);
+              const p2TechCount = (codeAnalysis2.technologyStack?.frontend?.length || 0) +
+                (codeAnalysis2.technologyStack?.backend?.length || 0) +
+                (codeAnalysis2.technologyStack?.tools?.length || 0);
+
               if (p1TechCount > p2TechCount) {
                 return `${project1} - Superior technical implementation with more comprehensive technology stack`;
               } else if (p2TechCount > p1TechCount) {
@@ -1527,11 +1527,11 @@ Only return JSON. No explanations or additional text.`
             project1_analysis: `${project1} market potential: ${comparisonData.project1.stars || 0} stars, ${comparisonData.project1.forks || 0} forks. ${comparisonData.project1.homepage ? 'Has live deployment' : 'No live deployment'}. ${codeAnalysis1.projectPurpose ? `Purpose: ${codeAnalysis1.projectPurpose}` : 'Purpose needs clarification'}.`,
             project2_analysis: `${project2} market potential: ${comparisonData.project2.stars || 0} stars, ${comparisonData.project2.forks || 0} forks. ${comparisonData.project2.homepage ? 'Has live deployment' : 'No live deployment'}. ${codeAnalysis2.projectPurpose ? `Purpose: ${codeAnalysis2.projectPurpose}` : 'Purpose needs clarification'}.`,
             winner: (() => {
-              const p1Market = (comparisonData.project1.stars || 0) + (comparisonData.project1.forks || 0) + 
-                              (comparisonData.project1.homepage ? 10 : 0) + (codeAnalysis1.projectPurpose ? 5 : 0);
-              const p2Market = (comparisonData.project2.stars || 0) + (comparisonData.project2.forks || 0) + 
-                              (comparisonData.project2.homepage ? 10 : 0) + (codeAnalysis2.projectPurpose ? 5 : 0);
-              
+              const p1Market = (comparisonData.project1.stars || 0) + (comparisonData.project1.forks || 0) +
+                (comparisonData.project1.homepage ? 10 : 0) + (codeAnalysis1.projectPurpose ? 5 : 0);
+              const p2Market = (comparisonData.project2.stars || 0) + (comparisonData.project2.forks || 0) +
+                (comparisonData.project2.homepage ? 10 : 0) + (codeAnalysis2.projectPurpose ? 5 : 0);
+
               if (p1Market > p2Market) {
                 return `${project1} - Higher market potential with better community engagement and deployment`;
               } else if (p2Market > p1Market) {
@@ -1545,11 +1545,11 @@ Only return JSON. No explanations or additional text.`
             project1_analysis: `${project1} UX: ${codeAnalysis1.technologyStack?.frontend?.length > 0 ? `Uses modern frontend: ${codeAnalysis1.technologyStack.frontend.join(', ')}` : 'Standard frontend approach'}. ${codeAnalysis1.actualCode?.some((file: any) => file.name.includes('css') || file.name.includes('style')) ? 'Has custom styling' : 'Basic styling'}.`,
             project2_analysis: `${project2} UX: ${codeAnalysis2.technologyStack?.frontend?.length > 0 ? `Uses modern frontend: ${codeAnalysis2.technologyStack.frontend.join(', ')}` : 'Standard frontend approach'}. ${codeAnalysis2.actualCode?.some((file: any) => file.name.includes('css') || file.name.includes('style')) ? 'Has custom styling' : 'Basic styling'}.`,
             winner: (() => {
-              const p1UXScore = (codeAnalysis1.technologyStack?.frontend?.length || 0) + 
-                               (codeAnalysis1.actualCode?.some((file: any) => file.name.includes('css') || file.name.includes('style')) ? 5 : 0);
-              const p2UXScore = (codeAnalysis2.technologyStack?.frontend?.length || 0) + 
-                               (codeAnalysis2.actualCode?.some((file: any) => file.name.includes('css') || file.name.includes('style')) ? 5 : 0);
-              
+              const p1UXScore = (codeAnalysis1.technologyStack?.frontend?.length || 0) +
+                (codeAnalysis1.actualCode?.some((file: any) => file.name.includes('css') || file.name.includes('style')) ? 5 : 0);
+              const p2UXScore = (codeAnalysis2.technologyStack?.frontend?.length || 0) +
+                (codeAnalysis2.actualCode?.some((file: any) => file.name.includes('css') || file.name.includes('style')) ? 5 : 0);
+
               if (p1UXScore > p2UXScore) {
                 return `${project1} - Superior user experience with better frontend implementation`;
               } else if (p2UXScore > p1UXScore) {
@@ -1592,7 +1592,7 @@ Only return JSON. No explanations or additional text.`
         overall_recommendation: `Based on comprehensive code analysis: ${(() => {
           const p1Score = (codeAnalysis1.keyFeatures?.length || 0) + (codeAnalysis1.technologyStack?.frontend?.length || 0) + (codeAnalysis1.technologyStack?.backend?.length || 0);
           const p2Score = (codeAnalysis2.keyFeatures?.length || 0) + (codeAnalysis2.technologyStack?.frontend?.length || 0) + (codeAnalysis2.technologyStack?.backend?.length || 0);
-          
+
           if (p1Score > p2Score) {
             return `${project1} shows stronger technical implementation and feature depth. Focus on enhancing ${project2} by adopting similar architectural patterns and expanding its feature set.`;
           } else if (p2Score > p1Score) {
